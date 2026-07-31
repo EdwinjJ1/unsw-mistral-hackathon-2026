@@ -4,7 +4,7 @@
 
 Built for the **UNSW × Mistral AI × Atlassian Hackathon 2026**.
 
-> 📋 **Team: read [`PLAN.md`](PLAN.md) before writing any code.** It has the scope, the architecture, the workstream you own, and the timeline. This README is the summary; PLAN.md is the contract.
+> 📋 **New to the project? Read [`GUIDE.md`](GUIDE.md) first** — ten minutes, plain English, explains how the whole system works and what every module does. Then [`CONTRACT.md`](CONTRACT.md) before you write code.
 
 ---
 
@@ -108,8 +108,9 @@ One complete loop, live:
 
 ```
 .
-├── README.md      # What we're building and why — start here
-├── PLAN.md        # Scope, architecture, workstreams, timeline, risks
+├── README.md      # What we're building and why — the pitch framing
+├── GUIDE.md       # How the system works and what every module does — read this first
+├── PLAN.md        # Scope, architecture decisions, timeline, risks
 └── CONTRACT.md    # Types + API shape. Read before writing code. Do not change alone.
 ```
 
