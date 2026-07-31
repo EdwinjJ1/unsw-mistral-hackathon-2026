@@ -31,6 +31,17 @@ export const commandData = [
       option.setName('user').setDescription('Who to check in with. Defaults to you.').setRequired(false),
     )
     .toJSON(),
+  new SlashCommandBuilder()
+    .setName('athena-ingest')
+    .setDescription('Test Issue #6 by extracting graph changes from project text.')
+    .addStringOption((option) =>
+      option
+        .setName('text')
+        .setDescription('Project text to extract into the graph.')
+        .setRequired(true)
+        .setMaxLength(4000),
+    )
+    .toJSON(),
 ];
 
 /** Register commands to the demo guild. Guild-scoped so they appear immediately. */
@@ -67,6 +78,18 @@ export async function handleCommand(
     if (interaction.commandName === 'athena-status') {
       await sendCheckIn(target, api);
       await interaction.editReply(`Sent a check-in DM to ${target.username}.`);
+      return;
+    }
+    if (interaction.commandName === 'athena-ingest') {
+      const text = interaction.options.getString('text', true);
+      const delta = await api.ingestText(text);
+      const nodeCount = delta.upsertNodes?.length ?? 0;
+      const edgeCount = delta.upsertEdges?.length ?? 0;
+      await interaction.editReply(
+        nodeCount === 0 && edgeCount === 0
+          ? 'Issue #6 generateGraphFromText produced a safe empty Delta; nothing was added.'
+          : `Issue #6 generateGraphFromText produced and applied ${nodeCount} node${nodeCount === 1 ? '' : 's'} and ${edgeCount} edge${edgeCount === 1 ? '' : 's'}.`,
+      );
       return;
     }
     await interaction.editReply(`Unknown command: ${interaction.commandName}`);

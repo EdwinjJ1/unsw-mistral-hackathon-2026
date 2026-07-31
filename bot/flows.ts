@@ -33,18 +33,29 @@ export async function sendCheckIn(user: User, api: GraphApi): Promise<string> {
   return message;
 }
 
-/** Inbound DM: log it, triage, extract a Delta, post it. */
+/** Inbound DM: log metadata, triage, extract a Delta, post it. */
 export async function handleDmReply(message: Message, api: GraphApi): Promise<void> {
   const { id: messageId, content } = message;
   const userId = message.author.id;
 
-  console.log('[in] DM reply', { discordUserId: userId, messageId, content });
+  console.log('[in] DM reply', {
+    discordUserId: userId,
+    messageId,
+    contentLength: content.length,
+  });
 
   const triage = await triageReply(content);
   console.log(`[in] triage -> ${triage}`);
   if (triage === 'noise') {
     console.log('[in] noise - nothing written to the graph');
-    await message.reply("Got it - I logged this as chatter, so I won't change the project graph.");
+    await message.reply(
+      "Classified as noise. I logged this as chatter, so I won't change the project graph.",
+    );
+    return;
+  }
+  if (triage === 'question') {
+    console.log('[in] question - nothing written to the graph');
+    await message.reply('Classified as question.');
     return;
   }
 
@@ -57,16 +68,25 @@ export async function handleDmReply(message: Message, api: GraphApi): Promise<vo
   const edgeCount = delta.upsertEdges?.length ?? 0;
   if (nodeCount === 0 && edgeCount === 0) {
     console.log('[in] extraction produced an empty delta - nothing to post');
-    await message.reply("Got it - I read your update, but I couldn't map it to a graph change yet.");
+    await message.reply(
+      `Classified as ${triage}. I read the reply, but I couldn't map it to an existing graph task or a supported graph change.`,
+    );
     return;
   }
 
   const result = await api.postDelta(delta);
+  const contradictionCount = result.changed.filter((id) =>
+    id.includes('--CONFLICTS_WITH--'),
+  ).length;
   console.log(`[in] posted delta - changed: ${result.changed.join(', ') || '(none)'}`);
   await message.reply(
-    `Got it - I updated the project graph (${result.changed.length} change${
+    `Classified as ${triage}. I updated the project graph (${result.changed.length} change${
       result.changed.length === 1 ? '' : 's'
-    }).`,
+    })${
+      contradictionCount > 0
+        ? ` and detected ${contradictionCount} contradiction${contradictionCount === 1 ? '' : 's'}`
+        : ''
+    }.`,
   );
 }
 
@@ -74,14 +94,22 @@ export async function handleDmReply(message: Message, api: GraphApi): Promise<vo
 export async function handleGuildMention(message: Message): Promise<void> {
   if (message.channel.type === ChannelType.DM) return;
   const botUser = message.client.user;
-  if (!botUser || !message.mentions.users.has(botUser.id)) return;
+  if (!botUser) return;
+
+  const userMentioned = message.mentions.users.has(botUser.id);
+  const assignedRoleMentioned = message.guild?.members.me?.roles.cache.some(
+    (role) =>
+      role.id !== message.guildId &&
+      message.mentions.roles.has(role.id),
+  ) ?? false;
+  if (!userMentioned && !assignedRoleMentioned) return;
 
   console.log('[guild] mention', {
     guildId: message.guildId,
     channelId: message.channelId,
     discordUserId: message.author.id,
     messageId: message.id,
-    content: message.content,
+    contentLength: message.content.length,
   });
 
   await message.reply(
