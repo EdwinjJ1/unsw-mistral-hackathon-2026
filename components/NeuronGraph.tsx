@@ -24,9 +24,10 @@ const ForceGraph2D = dynamic(
   { ssr: false },
 );
 
-const BACKGROUND = '#070b14';
+const BACKGROUND = '#0A0A0A';
 const NODE_REL_SIZE = 4;
 const TAU = Math.PI * 2;
+const MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, monospace';
 
 /** A node changed this recently → draw the expanding pulse ring. */
 const PULSE_WINDOW_MS = 15_000;
@@ -35,23 +36,25 @@ const HOT_WINDOW_MS = 30_000;
 
 type Rgb = readonly [number, number, number];
 
+// Near-monochrome instrument palette. Colour is reserved for alarm — the only
+// saturated value anywhere in this file is ALARM (#E5484D).
 const RGB: Record<string, Rgb> = {
-  red: [239, 68, 68],
-  amber: [245, 158, 11],
-  green: [34, 197, 94],
-  teal: [56, 189, 248],
-  slate: [100, 116, 139],
-  personBlue: [147, 197, 253],
-  violet: [167, 139, 250],
-  edge: [148, 163, 184],
+  team: [250, 250, 250], // #FAFAFA
+  teamQuiet: [196, 196, 202], // #C4C4CA
+  task: [161, 161, 170], // #A1A1AA
+  person: [107, 107, 112], // #6B6B70
+  decision: [139, 139, 147], // #8B8B93
+  alarm: [229, 72, 77], // #E5484D
+  label: [212, 212, 216], // #D4D4D8
+  edge: [255, 255, 255],
 };
 
 const TASK_STATUS_RGB: Record<string, Rgb> = {
-  not_started: RGB.slate,
-  in_progress: RGB.teal,
-  blocked: RGB.amber,
-  at_risk: RGB.amber,
-  done: RGB.green,
+  not_started: [82, 82, 90], // #52525A
+  in_progress: [161, 161, 170], // #A1A1AA
+  blocked: [250, 250, 250], // #FAFAFA
+  at_risk: [250, 250, 250], // #FAFAFA
+  done: [107, 107, 112], // #6B6B70
 };
 
 const rgba = ([r, g, b]: Rgb, alpha: number) =>
@@ -81,8 +84,14 @@ function nodeVal(node: RFNode, graph: RenderGraph): number {
   }
 }
 
-/** Aggregated health of everything hanging off a team. */
-function teamRgb(teamId: string, graph: RenderGraph): Rgb {
+/**
+ * Health reads as luminance, not hue. Trouble is bright, healthy work recedes.
+ * `alarm` is the only saturated signal — reserved for conflicts and blockers.
+ */
+function teamHealth(
+  teamId: string,
+  graph: RenderGraph,
+): { rgb: Rgb; alarm: boolean; strong: boolean } {
   const members = graph.nodes.filter((n) => n.teamId === teamId);
   const scope = new Set<string>([teamId, ...members.map((n) => n.id)]);
 
@@ -103,42 +112,52 @@ function teamRgb(teamId: string, graph: RenderGraph): Rgb {
         (blockerIds.has(a) && scope.has(b)) || (blockerIds.has(b) && scope.has(a))
       );
     });
-  if (hasConflict || hasBlocker) return RGB.red;
+  if (hasConflict || hasBlocker) {
+    return { rgb: RGB.team, alarm: true, strong: false };
+  }
 
   const tasks = members.filter((n) => n.type === 'Task');
-  if (tasks.length === 0) return RGB.teal;
   if (tasks.some((t) => t.status === 'blocked' || t.status === 'at_risk')) {
-    return RGB.amber;
+    return { rgb: RGB.team, alarm: false, strong: true };
   }
-  if (tasks.every((t) => t.status === 'done' || t.status === 'in_progress')) {
-    return RGB.green;
+  return { rgb: RGB.teamQuiet, alarm: false, strong: false };
+}
+
+/** Whether a non-team node should carry the red alarm ring. */
+function nodeAlarm(node: RFNode, graph: RenderGraph): boolean {
+  if (node.type === 'Blocker') return true;
+  if (node.type === 'Task' && (node.status === 'blocked' || node.status === 'at_risk')) {
+    return true;
   }
-  return RGB.teal;
+  return graph.links.some((l) => {
+    if (l.type !== 'CONFLICTS_WITH') return false;
+    return endpointId(l.source) === node.id || endpointId(l.target) === node.id;
+  });
 }
 
 function nodeRgb(node: RFNode, graph: RenderGraph): Rgb {
   switch (node.type) {
     case 'Team':
-      return teamRgb(node.id, graph);
+      return teamHealth(node.id, graph).rgb;
     case 'Person':
-      return RGB.personBlue;
+      return RGB.person;
     case 'Decision':
-      return RGB.violet;
+      return RGB.decision;
     case 'Blocker':
-      return RGB.red;
+      return RGB.alarm;
     case 'Task':
-      return TASK_STATUS_RGB[node.status ?? 'not_started'] ?? RGB.slate;
+      return TASK_STATUS_RGB[node.status ?? 'not_started'] ?? RGB.task;
     default:
-      return RGB.slate;
+      return RGB.task;
   }
 }
 
 const LINK_STYLE: Record<string, { rgb: Rgb; alpha: number; width: number }> = {
-  CONFLICTS_WITH: { rgb: RGB.red, alpha: 0.85, width: 2.5 },
-  DEPENDS_ON: { rgb: RGB.edge, alpha: 0.35, width: 1.5 },
-  BLOCKS: { rgb: RGB.edge, alpha: 0.35, width: 1.5 },
+  CONFLICTS_WITH: { rgb: RGB.alarm, alpha: 0.9, width: 1.6 },
+  DEPENDS_ON: { rgb: RGB.edge, alpha: 0.16, width: 0.75 },
+  BLOCKS: { rgb: RGB.edge, alpha: 0.16, width: 0.75 },
 };
-const DEFAULT_LINK_STYLE = { rgb: RGB.edge, alpha: 0.15, width: 1 };
+const DEFAULT_LINK_STYLE = { rgb: RGB.edge, alpha: 0.07, width: 0.5 };
 
 const linkStyle = (link: RFLink) => LINK_STYLE[link.type] ?? DEFAULT_LINK_STYLE;
 
@@ -153,6 +172,37 @@ function isHotLink(link: RFLink, now: number): boolean {
     (e) =>
       typeof e !== 'string' && now - millis(e.updatedAt) < HOT_WINDOW_MS,
   );
+}
+
+/** Draws mono text with manual letter-spacing, using ctx.letterSpacing when available. */
+function drawMonoLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  letterSpacing: number,
+  color: string,
+): void {
+  ctx.font = `${size}px ${MONO_FONT}`;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'top';
+  if (typeof ctx.letterSpacing === 'string') {
+    ctx.textAlign = 'center';
+    ctx.letterSpacing = `${letterSpacing}px`;
+    ctx.fillText(text, x, y);
+    ctx.letterSpacing = '0px';
+    return;
+  }
+  const chars = [...text];
+  const widths = chars.map((ch) => ctx.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b, 0) + letterSpacing * (chars.length - 1);
+  ctx.textAlign = 'left';
+  let cx = x - total / 2;
+  for (let i = 0; i < chars.length; i++) {
+    ctx.fillText(chars[i], cx, y);
+    cx += widths[i] + letterSpacing;
+  }
 }
 
 /** Subset of the react-force-graph imperative handle this component uses. */
@@ -241,6 +291,11 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
     [hotKey],
   );
 
+  const conflictLinks = useMemo(
+    () => graph.links.filter((l) => l.type === 'CONFLICTS_WITH'),
+    [graph],
+  );
+
   const paintNode = useCallback(
     (node: RFNode, ctx: CanvasRenderingContext2D, scale: number) => {
       if (node.x === undefined || node.y === undefined) return;
@@ -255,15 +310,32 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
       const dim =
         highlight.nodeId && !highlight.nodes.has(node.id) ? DIM : 1;
 
-      // Soft halo — this is what makes the node read as a neuron rather than a
-      // dot in a generic node-link diagram.
-      const haloRadius = radius * 3;
-      const halo = ctx.createRadialGradient(x, y, 0, x, y, haloRadius);
-      halo.addColorStop(0, rgba(rgb, (selected ? 0.45 : 0.25) * dim));
-      halo.addColorStop(1, rgba(rgb, 0));
-      ctx.fillStyle = halo;
+      const team = node.type === 'Team' ? teamHealth(node.id, graph) : null;
+      const alarmed = team ? team.alarm : nodeAlarm(node, graph);
+      const strong = team ? team.strong : false;
+
+      // Flat two-layer glow instead of a gradient — cheaper, and reads as an
+      // instrument light rather than a soft bloom.
+      if (alarmed) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 3.2, 0, TAU);
+        ctx.fillStyle = rgba(RGB.alarm, 0.1 * dim);
+        ctx.fill();
+      } else if (strong) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 3, 0, TAU);
+        ctx.fillStyle = rgba([255, 255, 255], 0.06 * dim);
+        ctx.fill();
+      }
+
       ctx.beginPath();
-      ctx.arc(x, y, haloRadius, 0, TAU);
+      ctx.arc(x, y, radius * 2.6, 0, TAU);
+      ctx.fillStyle = rgba(rgb, 0.05 * dim);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 1.7, 0, TAU);
+      ctx.fillStyle = rgba(rgb, 0.08 * dim);
       ctx.fill();
 
       // Solid core.
@@ -287,7 +359,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
         const fade = (1 - phase) * (1 - age / PULSE_WINDOW_MS);
         ctx.beginPath();
         ctx.arc(x, y, radius * 1.4 + phase * radius * 2.6, 0, TAU);
-        ctx.strokeStyle = rgba(rgb, 0.85 * fade * dim);
+        ctx.strokeStyle = rgba(alarmed ? RGB.alarm : rgb, 0.85 * fade * dim);
         ctx.lineWidth = 2 / scale;
         ctx.stroke();
       }
@@ -295,11 +367,15 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
       const showLabel =
         node.type === 'Team' || selected || highlight.nodeId === node.id;
       if (showLabel) {
-        ctx.font = `${11 / scale}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = `rgba(203,213,225,${dim})`;
-        ctx.fillText(node.label, x, y + radius + 6 / scale);
+        drawMonoLabel(
+          ctx,
+          node.label,
+          x,
+          y + radius + 6 / scale,
+          11 / scale,
+          1.1 / scale,
+          rgba(RGB.label, dim),
+        );
       }
     },
     [activeSelectedId],
@@ -328,10 +404,10 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
   );
 
   const linkParticleColor = useCallback((link: RFLink) => {
-    if (link.type === 'CONFLICTS_WITH') return rgba(RGB.red, 0.95);
+    if (link.type === 'CONFLICTS_WITH') return rgba(RGB.alarm, 0.95);
     return isHotLink(link, Date.now())
-      ? 'rgba(226,232,240,0.95)'
-      : rgba(RGB.edge, 0.55);
+      ? 'rgba(255,255,255,0.95)'
+      : 'rgba(255,255,255,0.55)';
   }, []);
 
   const handleNodeHover = useCallback((node: RFNode | null) => {
@@ -422,7 +498,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
           linkColor={linkColor}
           linkWidth={linkWidth}
           linkDirectionalParticles={linkParticles}
-          linkDirectionalParticleSpeed={0.006}
+          linkDirectionalParticleSpeed={0.005}
           linkDirectionalParticleWidth={linkParticleWidth}
           linkDirectionalParticleColor={linkParticleColor}
           onNodeHover={handleNodeHover}
@@ -438,22 +514,114 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
         />
       )}
 
-      {stale && (
+      {/* Top bar */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 38,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 16px',
+          borderBottom: '0.5px solid rgba(255,255,255,0.09)',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            font: `12px ${MONO_FONT}`,
+            letterSpacing: '2.4px',
+            color: '#FAFAFA',
+          }}
+        >
+          ATHENA
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            style={{
+              width: 2.5,
+              height: 2.5,
+              borderRadius: '50%',
+              background: stale ? '#F59E0B' : '#4ADE80',
+            }}
+          />
+          <div style={{ font: `11px ${MONO_FONT}`, color: '#71717A' }}>
+            {stale ? 'offline · fixture' : `live · ${graph.nodes.length} nodes`}
+          </div>
+        </div>
+      </div>
+
+      {/* Legend pill */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 16,
+          bottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '6px 12px',
+          borderRadius: 4,
+          background: 'rgba(255,255,255,0.03)',
+          border: '0.5px solid rgba(255,255,255,0.07)',
+          font: `11px ${MONO_FONT}`,
+          color: '#71717A',
+          pointerEvents: 'none',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#FAFAFA',
+            }}
+          />
+          Team
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: '#A1A1AA',
+            }}
+          />
+          Task
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 12, height: 1.6, background: '#E5484D' }} />
+          Conflict
+        </span>
+      </div>
+
+      {/* Alert pill — only when there is something to alarm about */}
+      {conflictLinks.length > 0 && (
         <div
           style={{
             position: 'absolute',
-            top: 12,
-            right: 12,
-            padding: '5px 10px',
-            borderRadius: 999,
-            border: '1px solid rgba(245,158,11,0.45)',
-            background: 'rgba(245,158,11,0.12)',
-            color: '#fbbf24',
-            font: '11px ui-sans-serif, system-ui, sans-serif',
+            right: 16,
+            bottom: 16,
+            maxWidth: 280,
+            padding: '8px 12px',
+            borderRadius: 4,
+            background: 'rgba(229,72,77,0.06)',
+            border: '1px solid rgba(229,72,77,0.28)',
+            font: `11px ${MONO_FONT}`,
             pointerEvents: 'none',
           }}
         >
-          offline — fixture data
+          <div style={{ color: '#E5484D' }}>
+            {conflictLinks.length} unresolved conflict{conflictLinks.length === 1 ? '' : 's'}
+          </div>
+          {conflictLinks[0].note && (
+            <div style={{ color: '#8A6567', marginTop: 2 }}>{conflictLinks[0].note}</div>
+          )}
         </div>
       )}
 
@@ -466,18 +634,17 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
             width: 220,
             padding: '10px 12px',
             borderRadius: 8,
-            border: '1px solid rgba(148,163,184,0.25)',
-            background: 'rgba(15,23,42,0.92)',
-            color: '#e2e8f0',
-            font: '12px ui-sans-serif, system-ui, sans-serif',
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(10,10,10,0.94)',
+            font: `11px ${MONO_FONT}`,
             pointerEvents: 'none',
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>{card.node.label}</div>
-          <div style={{ color: '#94a3b8' }}>{card.node.type}</div>
-          {card.node.status && (
-            <div style={{ color: '#94a3b8' }}>{card.node.status}</div>
-          )}
+          <div style={{ fontWeight: 600, marginBottom: 4, color: '#FAFAFA' }}>
+            {card.node.label}
+          </div>
+          <div style={{ color: '#71717A' }}>{card.node.type}</div>
+          {card.node.status && <div style={{ color: '#71717A' }}>{card.node.status}</div>}
         </div>
       )}
     </div>
