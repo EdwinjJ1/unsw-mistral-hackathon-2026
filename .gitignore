@@ -7,6 +7,7 @@
 
 # Dependencies
 node_modules/
+.npm-cache/
 .pnp
 .pnp.js
 __pycache__/
@@ -24,6 +25,7 @@ out/
 
 # Tooling caches
 .cache/
+*.tsbuildinfo
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -42,3 +44,6 @@ Thumbs.db
 # Local scratch / demo data
 scratch/
 tmp/
+*.db
+*.db-wal
+*.db-shm

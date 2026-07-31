@@ -135,7 +135,27 @@ Only **A** is on the critical path — four tracks consume its API. A ships sche
 
 ## Getting started
 
-Skeleton lands with Track A. Right now, in this order:
+The Track A graph core can now be run locally:
+
+```bash
+npm install
+npm run seed
+npm run dev
+```
+
+The default SQLite database is `./athena.db`; override it with
+`DATABASE_PATH`. Useful engineering checks are available as `npm test`,
+`npm run typecheck`, and `npm run build`.
+
+The five frozen endpoints are:
+
+- `GET /api/graph`
+- `GET /api/team/:id`
+- `GET /api/person/:discordUserId`
+- `POST /api/delta`
+- `POST /api/ingest`
+
+For the rest of the team, continue in this order:
 
 1. **Everyone: read [`CONTRACT.md`](CONTRACT.md) and agree on it.** 20 minutes, whole team, before any code. Six people building against six different node shapes is the only realistic way this fails.
 2. Claim a track in the table above.
