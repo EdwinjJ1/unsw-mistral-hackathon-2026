@@ -1,4 +1,4 @@
-// Shared types — CONTRACT.md §Types, verbatim.
+// Shared types — docs/CONTRACT.md §Types, verbatim.
 // Track A owns this file. Everyone imports from here; nobody re-declares these.
 // Changing a type here breaks five other people. Post in the channel first.
 
