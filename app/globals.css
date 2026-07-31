@@ -1,117 +1,40 @@
 :root {
-  color-scheme: dark;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  background: #080b12;
-  color: #f3f6ff;
+  --background: #f2eee3;
+  --foreground: #1f2422;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
+  min-height: 100%;
   margin: 0;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(72, 103, 255, 0.19), transparent 38rem),
-    #080b12;
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-main {
-  width: min(900px, calc(100% - 40px));
-  margin: 0 auto;
-  padding: 12vh 0 80px;
+body {
+  overflow-x: hidden;
 }
 
-.eyebrow {
-  color: #8da1ff;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+button,
+input,
+textarea,
+select {
+  color: inherit;
+  font: inherit;
 }
 
-h1 {
-  max-width: 700px;
-  margin: 14px 0 20px;
-  font-size: clamp(2.8rem, 7vw, 5.8rem);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
-.lede {
-  max-width: 720px;
-  color: #b8c0d8;
-  font-size: 1.12rem;
-  line-height: 1.7;
-}
-
-section {
-  margin-top: 64px;
-}
-
-h2 {
-  font-size: 1rem;
-}
-
-.endpoint-list {
-  overflow: hidden;
-  border: 1px solid #283046;
-  border-radius: 14px;
-  background: rgba(15, 20, 32, 0.82);
-}
-
-article {
-  display: grid;
-  grid-template-columns: 64px minmax(250px, 1fr) 1.35fr;
-  gap: 18px;
-  align-items: center;
-  min-height: 62px;
-  padding: 12px 16px;
-  color: #aeb8d0;
-  border-bottom: 1px solid #20283b;
-}
-
-article:last-child {
-  border-bottom: 0;
-}
-
-code {
-  font-family: "SFMono-Regular", Consolas, monospace;
-}
-
-.method {
-  width: fit-content;
-  padding: 4px 7px;
-  color: #9fe8c0;
-  border: 1px solid #2a6045;
-  border-radius: 5px;
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-
-.method-post {
-  color: #aebcff;
-  border-color: #3d4f96;
-}
-
-.route {
-  color: #f5f7ff;
-}
-
-.handoff {
-  margin-top: 24px;
-  color: #6f7890;
-  font-size: 0.85rem;
-}
-
-@media (max-width: 700px) {
-  article {
-    grid-template-columns: 60px 1fr;
-  }
-
-  article span {
-    grid-column: 1 / -1;
-  }
+a {
+  color: inherit;
+  text-decoration: none;
 }
