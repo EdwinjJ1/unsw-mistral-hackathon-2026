@@ -53,6 +53,20 @@
       }
     },
     {
+      "id": "decision.legal-approvals-cleared",
+      "type": "Decision",
+      "label": "Legal approvals cleared",
+      "teamId": "team.legal-ops",
+      "status": "done",
+      "summary": "All Legal approvals are cleared.",
+      "updatedAt": "2026-07-31T05:30:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-legal-303",
+        "quote": "All Legal approvals are cleared."
+      }
+    },
+    {
       "id": "person.priya-shah",
       "type": "Person",
       "label": "Priya Shah",

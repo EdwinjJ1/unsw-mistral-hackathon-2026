@@ -9,7 +9,16 @@ export const runtime = 'nodejs';
 export async function POST(request: Request): Promise<Response> {
   try {
     const { text } = parseIngestRequest(await readJson(request));
-    const delta = parseDelta(await generateGraphFromText(text));
+    const generated = await generateGraphFromText(text);
+    if (
+      generated.upsertNodes === undefined
+      && generated.upsertEdges === undefined
+      && generated.deleteNodeIds === undefined
+      && generated.deleteEdgeIds === undefined
+    ) {
+      return Response.json(generated);
+    }
+    const delta = parseDelta(generated);
     await applyDeltaWithSignals(delta);
     return Response.json(delta);
   } catch (error) {
