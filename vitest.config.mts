@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     environment: "node",
     exclude: ["dist/**", "node_modules/**"],
-    include: ["lib/mistral/__tests__/**/*.test.ts"],
+    include: ["lib/mistral/__tests__/**/*.test.ts", "bot/**/*.test.ts"],
     restoreMocks: true,
   },
 });

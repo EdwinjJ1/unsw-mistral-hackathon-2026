@@ -89,7 +89,15 @@ export async function handleDmReply(message: Message, api: GraphApi): Promise<vo
 export async function handleGuildMention(message: Message): Promise<void> {
   if (message.channel.type === ChannelType.DM) return;
   const botUser = message.client.user;
-  if (!botUser || !message.mentions.users.has(botUser.id)) return;
+  if (!botUser) return;
+
+  const userMentioned = message.mentions.users.has(botUser.id);
+  const assignedRoleMentioned = message.guild?.members.me?.roles.cache.some(
+    (role) =>
+      role.id !== message.guildId &&
+      message.mentions.roles.has(role.id),
+  ) ?? false;
+  if (!userMentioned && !assignedRoleMentioned) return;
 
   console.log('[guild] mention', {
     guildId: message.guildId,
