@@ -1,4 +1,4 @@
-import type { Delta, EdgeType, Graph, GraphNode, SourceRef } from "../types";
+import { nodeId, type Delta, type EdgeType, type Graph, type GraphNode, type SourceRef } from "../types";
 import type { DeltaDraft } from "./models";
 import { normalizeDeltaDraft } from "./normalize";
 import { deltaDraftSchema } from "./schemas";
@@ -96,6 +96,34 @@ function fallbackExtractDraft(text: string, context: Graph): DeltaDraft {
   return { nodes, edges };
 }
 
+function anchorReplyDraft(
+  draft: DeltaDraft,
+  text: string,
+  context: Graph,
+): DeltaDraft {
+  const task = relevantTask(text, context);
+  if (!task) return draft;
+
+  const blockerRefs = new Set<string>();
+  for (const node of [
+    ...context.nodes.filter((candidate) => candidate.type === "Blocker"),
+    ...draft.nodes.filter((candidate) => candidate.type === "Blocker"),
+  ]) {
+    if (node.id) blockerRefs.add(node.id);
+    blockerRefs.add(node.label);
+    blockerRefs.add(nodeId("Blocker", node.label));
+  }
+
+  return {
+    nodes: draft.nodes.map((node) => ({ ...node })),
+    edges: draft.edges.map((edge) =>
+      edge.type === "BLOCKS" && blockerRefs.has(edge.from)
+        ? { ...edge, to: task.id }
+        : { ...edge },
+    ),
+  };
+}
+
 function compactContext(context: Graph): object {
   return {
     nodes: context.nodes.map((node) => ({
@@ -134,7 +162,13 @@ export async function extractDelta(
     fallback,
   });
 
-  return normalizeDeltaDraft(draft, {
+  const deterministicDraft = fallback();
+  const groundedDraft =
+    deterministicDraft.nodes.length > 0 || deterministicDraft.edges.length > 0
+      ? deterministicDraft
+      : anchorReplyDraft(draft, text, context);
+
+  return normalizeDeltaDraft(groundedDraft, {
     context,
     source,
     allowedEdgeTypes: REPLY_EDGE_TYPES,

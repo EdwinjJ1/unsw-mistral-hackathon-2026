@@ -23,6 +23,30 @@ interface NormalizeOptions {
   allowedEdgeTypes?: ReadonlySet<EdgeType>;
 }
 
+function validEdgeEndpoints(
+  type: EdgeType,
+  from: GraphNode,
+  to: GraphNode,
+): boolean {
+  switch (type) {
+    case "MEMBER_OF":
+      return from.type === "Person" && to.type === "Team";
+    case "OWNS":
+      return from.type === "Person" && to.type === "Task";
+    case "DEPENDS_ON":
+      return (
+        from.type === "Task" &&
+        ["Task", "Team", "Decision"].includes(to.type)
+      );
+    case "BLOCKS":
+      return (
+        ["Blocker", "Task"].includes(from.type) && to.type === "Task"
+      );
+    case "CONFLICTS_WITH":
+      return true;
+  }
+}
+
 function defined<T>(value: T | null | undefined): value is T {
   return value !== undefined && value !== null;
 }
@@ -218,6 +242,8 @@ export function normalizeDeltaDraft(
   }
 
   const upsertEdgeMap = new Map<string, GraphEdge>();
+  const nodeById = new Map(contextNodes.map((node) => [node.id, node]));
+  for (const node of upsertNodeMap.values()) nodeById.set(node.id, node);
   for (const edgeDraft of draft.edges) {
     if (
       options.allowedEdgeTypes &&
@@ -229,6 +255,12 @@ export function normalizeDeltaDraft(
     let from = referenceMap.get(edgeDraft.from);
     let to = referenceMap.get(edgeDraft.to);
     if (!from || !to || !contextIds.has(from) || !contextIds.has(to)) continue;
+
+    const fromNode = nodeById.get(from);
+    const toNode = nodeById.get(to);
+    if (!fromNode || !toNode || !validEdgeEndpoints(edgeDraft.type, fromNode, toNode)) {
+      continue;
+    }
 
     if (edgeDraft.type === "CONFLICTS_WITH") {
       if (from.localeCompare(to) > 0) {

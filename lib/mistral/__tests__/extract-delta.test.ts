@@ -112,4 +112,107 @@ describe("extractDelta", () => {
       "blocker.vendor-outage--BLOCKS--task.rollback-runbook",
     );
   });
+
+  it("anchors a model blocker to the task explicitly named in the reply", async () => {
+    const graph = makeDemoGraph();
+    graph.nodes.push({
+      id: "task.production-deploy",
+      type: "Task",
+      label: "Production deployment",
+      status: "in_progress",
+      updatedAt: "2026-07-31T00:00:00.000Z",
+    });
+    delete process.env.MISTRAL_FORCE_FALLBACK;
+    process.env.MISTRAL_API_KEY = "test-key";
+    setStructuredTransportForTests(async () =>
+      JSON.stringify({
+        nodes: [
+          {
+            id: "task.rollback-runbook",
+            type: "Task",
+            label: "Rollback runbook",
+            status: "done",
+          },
+          {
+            id: "tmp-blocker",
+            type: "Blocker",
+            label: "Waiting on Legal",
+            status: "blocked",
+          },
+        ],
+        edges: [
+          {
+            from: "tmp-blocker",
+            to: "task.production-deploy",
+            type: "BLOCKS",
+          },
+          {
+            from: "person.engineer",
+            to: "tmp-blocker",
+            type: "OWNS",
+          },
+        ],
+      }),
+    );
+
+    const delta = await extractDelta(demoReply, graph, demoSource);
+    expect(delta.upsertEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "blocker.waiting-on-legal--BLOCKS--task.rollback-runbook",
+          from: "blocker.waiting-on-legal",
+          to: "task.rollback-runbook",
+          type: "BLOCKS",
+        }),
+        expect.objectContaining({
+          id: "task.rollback-runbook--DEPENDS_ON--team.legal",
+        }),
+      ]),
+    );
+    expect(delta.upsertEdges).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "OWNS", to: "blocker.waiting-on-legal" }),
+      ]),
+    );
+  });
+
+  it("preserves deterministic supported facts when the model omits the blocker", async () => {
+    delete process.env.MISTRAL_FORCE_FALLBACK;
+    process.env.MISTRAL_API_KEY = "test-key";
+    setStructuredTransportForTests(async () =>
+      JSON.stringify({
+        nodes: [
+          {
+            id: "decision.legal-approvals-cleared",
+            type: "Decision",
+            label: "Legal approvals cleared",
+            status: "done",
+          },
+        ],
+        edges: [
+          {
+            from: "task.rollback-runbook",
+            to: "decision.legal-approvals-cleared",
+            type: "DEPENDS_ON",
+          },
+        ],
+      }),
+    );
+
+    const delta = await extractDelta(demoReply, makeDemoGraph(), demoSource);
+    expect(delta.upsertNodes?.map((node) => node.id)).toEqual([
+      "task.rollback-runbook",
+      "blocker.waiting-on-legal",
+    ]);
+    expect(delta.upsertEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "blocker.waiting-on-legal--BLOCKS--task.rollback-runbook",
+        }),
+        expect.objectContaining({
+          id: "task.rollback-runbook--DEPENDS_ON--team.legal",
+        }),
+      ]),
+    );
+  });
 });

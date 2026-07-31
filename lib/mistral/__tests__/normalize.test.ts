@@ -90,4 +90,33 @@ describe("server-owned normalization", () => {
     expect(edge?.note).not.toMatch(/[\r\n]/);
     expect(edge?.note?.length).toBeLessThanOrEqual(240);
   });
+
+  it("rejects semantically invalid edge endpoint types", () => {
+    const context: Graph = {
+      nodes: [
+        { id: "person.alice", type: "Person", label: "Alice", updatedAt: "2026-01-01T00:00:00Z" },
+        { id: "task.release", type: "Task", label: "Release", updatedAt: "2026-01-01T00:00:00Z" },
+        { id: "blocker.legal", type: "Blocker", label: "Legal", updatedAt: "2026-01-01T00:00:00Z" },
+        { id: "team.legal", type: "Team", label: "Legal", updatedAt: "2026-01-01T00:00:00Z" },
+      ],
+      edges: [],
+    };
+    const result = normalizeDeltaDraft(
+      {
+        nodes: [],
+        edges: [
+          { from: "person.alice", to: "blocker.legal", type: "OWNS" },
+          { from: "blocker.legal", to: "team.legal", type: "BLOCKS" },
+          { from: "person.alice", to: "task.release", type: "OWNS" },
+          { from: "blocker.legal", to: "task.release", type: "BLOCKS" },
+        ],
+      },
+      { context, source },
+    );
+
+    expect(result.upsertEdges?.map((edge) => edge.id)).toEqual([
+      "person.alice--OWNS--task.release",
+      "blocker.legal--BLOCKS--task.release",
+    ]);
+  });
 });

@@ -75,6 +75,7 @@ function normalizeConflicts(
   anchorIds: ReadonlySet<string>,
 ): GraphEdge[] {
   const graphNodeIds = new Set(graph.nodes.map((node) => node.id));
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const existingPairs = new Set(
     graph.edges
       .filter((edge) => edge.type === "CONFLICTS_WITH")
@@ -95,6 +96,12 @@ function normalizeConflicts(
       !candidateIds.has(draft.to) ||
       (!anchorIds.has(draft.from) && !anchorIds.has(draft.to))
     ) {
+      continue;
+    }
+
+    const fromNode = nodeById.get(draft.from);
+    const toNode = nodeById.get(draft.to);
+    if (!fromNode || !toNode || (fromNode.type === "Team" && toNode.type === "Team")) {
       continue;
     }
 
@@ -178,9 +185,11 @@ export async function findContradictions(
     fallback,
   });
 
+  const deterministicConflicts = fallback().conflicts;
+
   return normalizeConflicts(
     graph,
-    result.conflicts,
+    deterministicConflicts.length > 0 ? deterministicConflicts : result.conflicts,
     candidateIds,
     anchorIds,
   );

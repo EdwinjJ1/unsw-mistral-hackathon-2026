@@ -109,4 +109,32 @@ describe("findContradictions", () => {
     });
     expect(await findContradictions(graph, changedIds)).toEqual([]);
   });
+
+  it("rejects model-inferred Team-to-Team conflicts without entity claims", async () => {
+    const { graph, changedIds } = await updatedDemoGraph();
+    delete process.env.MISTRAL_FORCE_FALLBACK;
+    process.env.MISTRAL_API_KEY = "test-key";
+    setStructuredTransportForTests(async () =>
+      JSON.stringify({
+        conflicts: [
+          {
+            from: "team.engineering",
+            to: "team.legal",
+            note: "The teams disagree about the approval state.",
+          },
+          {
+            from: "task.rollback-runbook",
+            to: "decision.legal-approvals-cleared",
+            note: "The task state differs from the approval record.",
+          },
+        ],
+      }),
+    );
+
+    const conflicts = await findContradictions(graph, changedIds);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.id).toBe(
+      "blocker.waiting-on-legal--CONFLICTS_WITH--decision.legal-approvals-cleared",
+    );
+  });
 });
