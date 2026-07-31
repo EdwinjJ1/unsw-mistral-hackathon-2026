@@ -214,7 +214,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
   const [card, setCard] = useState<{ node: RFNode; x: number; y: number } | null>(
     null,
   );
-  const activeSelectedId = onSelect ? (selectedId ?? '') : ownSelectedId;
+  const activeSelectedId = selectedId ?? ownSelectedId;
 
   // Track which links are "live" as a stable key. force-graph rebuilds a link's
   // particle set whenever the linkDirectionalParticles accessor identity
