@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { Fragment, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import styles from './constellation.module.css';
 
 type Health = 'On track' | 'Watch' | 'At risk';
@@ -230,12 +231,12 @@ function AtlasHeader() {
     <header className={styles.atlasHeader}>
       <div className={styles.brandLockup}>
         <span className={styles.brandMark}>A</span>
-        <span><strong>ATHENA</strong><small>ORGANISATION ATLAS</small></span>
+        <span><strong>Athena</strong><small>ORGANISATION ATLAS</small></span>
       </div>
       <div className={styles.headerMeta}>
-        <span><i className={styles.liveDot} /> LIVE MAP</span>
-        <span>50 BODIES</span>
-        <span>31 JUL 2026</span>
+        <span><i className={styles.liveDot} /> LIVE CONSTELLATION</span>
+        <span>10 TEAMS · 40 ORBITAL BODIES</span>
+        <span>31.07.26</span>
       </div>
     </header>
   );
@@ -245,114 +246,134 @@ function MapLegend() {
   return (
     <div className={styles.legend}>
       <span className={styles.legendPlanet} /><span>Department</span>
-      <span className={styles.legendMoon} /><span>Person / sub-team</span>
+      <span className={styles.legendMoon} /><span>Hover for orbit</span>
       <span className={styles.legendLine} /><span>Collaboration</span>
     </div>
   );
 }
 
 function ConstellationMap({
-  selected, hoveredId, onHover, onSelect, onSatellite,
+  selected, hoveredId, isFocused, onHoverStart, onHoverEnd, onSelect, onSatellite, onReset,
 }: {
   selected: Department;
   hoveredId: string | null;
-  onHover: (departmentId: string | null) => void;
+  isFocused: boolean;
+  onHoverStart: (departmentId: string) => void;
+  onHoverEnd: () => void;
   onSelect: (department: Department) => void;
   onSatellite: (department: Department, label: string) => void;
+  onReset: () => void;
 }) {
   const byId = useMemo(() => new Map(DEPARTMENTS.map((item) => [item.id, item])), []);
-  const orbitingId = hoveredId ?? selected.id;
+  const highlightedId = hoveredId ?? selected.id;
+  const cameraStyle = {
+    '--camera-x': `${50 - selected.x}%`,
+    '--camera-y': `${51 - selected.y}%`,
+  } as CSSProperties;
+
   return (
-    <section className={styles.mapPanel} aria-label="Interactive organisation constellation">
+    <section className={`${styles.mapPanel} ${isFocused ? styles.mapPanelFocused : ''}`} aria-label="Interactive organisation constellation">
       <div className={styles.mapIntro}>
-        <p>01 / ORGANISATION</p>
-        <h1>A living company<br />constellation.</h1>
-        <span>Select any planet to inspect its orbit.</span>
+        <p>01 / LIVING ORGANISATION</p>
+        <h1>One company,<br /><em>in orbit.</em></h1>
+        <span>Hover to reveal · Select to explore</span>
       </div>
-      <div className={styles.chart}>
+      {isFocused && (
+        <button type="button" className={styles.resetView} onClick={onReset}>
+          <span>←</span> RETURN TO CONSTELLATION
+        </button>
+      )}
+      <div
+        className={`${styles.chart} ${isFocused ? styles.chartFocused : ''}`}
+        style={cameraStyle}
+      >
         <svg className={styles.network} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {NETWORK_LINKS.map(([fromId, toId], index) => {
             const from = byId.get(fromId);
             const to = byId.get(toId);
             if (!from || !to) return null;
+            const isActive = highlightedId === fromId || highlightedId === toId;
             return (
               <path
                 key={`${fromId}-${toId}`}
                 d={`M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${(from.y + to.y) / 2 + (index % 2 ? 4 : -4)} ${to.x} ${to.y}`}
-                className={orbitingId === fromId || orbitingId === toId ? styles.networkActive : styles.networkLine}
+                className={isActive ? styles.networkActive : styles.networkLine}
               />
             );
           })}
-          {DEPARTMENTS.flatMap((department) =>
-            SATELLITE_OFFSETS.map((offset, index) => (
+          {hoveredId && SATELLITE_OFFSETS.map((offset, index) => {
+            const department = byId.get(hoveredId);
+            if (!department) return null;
+            return (
               <path
-                key={`${department.id}-sat-${index}`}
-                d={`M ${department.x} ${department.y} Q ${department.x + offset.x * 0.55 + (index % 2 ? 1.5 : -1.5)} ${department.y + offset.y * 0.35} ${department.x + offset.x} ${department.y + offset.y}`}
-                className={orbitingId === department.id ? styles.orbitLineHidden : styles.orbitLine}
+                key={`${hoveredId}-orbit-${index}`}
+                d={`M ${department.x} ${department.y} Q ${department.x + offset.x * 0.52 + (index % 2 ? 1.4 : -1.4)} ${department.y + offset.y * 0.38} ${department.x + offset.x} ${department.y + offset.y}`}
+                className={styles.orbitLine}
               />
-            )),
-          )}
+            );
+          })}
         </svg>
         {DEPARTMENTS.map((department, departmentIndex) => {
           const isSelected = department.id === selected.id;
-          const isOrbiting = department.id === orbitingId;
+          const isOrbiting = department.id === hoveredId;
+          const orbitDetails = [
+            { label: department.people[0].name, meta: department.people[0].role, size: 16 },
+            { label: department.people[1].name, meta: department.people[1].role, size: 16 },
+            { label: department.subteams[0], meta: 'Sub-team', size: 21 },
+            { label: department.subteams[1], meta: 'Sub-team', size: 21 },
+          ];
           return (
             <div key={department.id}>
               <button
                 type="button"
-                className={`${styles.planetButton} ${isSelected ? styles.planetSelected : ''}`}
+                className={[
+                  styles.planetButton,
+                  isSelected ? styles.planetSelected : '',
+                  isSelected && isFocused ? styles.planetInFocus : '',
+                  hoveredId && !isOrbiting ? styles.planetMuted : '',
+                ].join(' ')}
                 style={{
                   left: `${department.x}%`, top: `${department.y}%`,
-                  width: department.size, height: department.size, zIndex: isSelected ? 8 : isOrbiting ? 7 : 4,
+                  width: department.size, height: department.size, zIndex: isOrbiting ? 9 : isSelected ? 8 : 4,
                   '--float-delay': `${departmentIndex * -0.7}s`,
-                } as React.CSSProperties}
+                } as CSSProperties}
                 onClick={() => onSelect(department)}
-                onMouseEnter={() => onHover(department.id)}
-                onMouseLeave={() => onHover(null)}
-                onFocus={() => onHover(department.id)}
-                onBlur={() => onHover(null)}
+                onMouseEnter={() => onHoverStart(department.id)}
+                onMouseLeave={onHoverEnd}
+                onFocus={() => onHoverStart(department.id)}
+                onBlur={onHoverEnd}
                 aria-label={`Open ${department.name} department`}
+                aria-pressed={isSelected && isFocused}
               >
-                <span className={styles.planetHalo} />
-                <Image className={styles.planetImage} src={department.image} alt="" fill sizes="(max-width: 900px) 130px, 224px" priority={department.id === 'engineering'} />
+                <span className={styles.planetVisual}>
+                  <span className={styles.planetHalo} />
+                  <Image className={styles.planetImage} src={department.image} alt="" fill sizes="(max-width: 900px) 130px, 224px" priority={department.id === 'engineering'} />
+                </span>
                 <span className={styles.planetCaption}><strong>{department.name}</strong><small>{department.code}</small></span>
               </button>
               {SATELLITE_OFFSETS.map((offset, index) => {
-                const label = index < 2 ? department.people[index].name : department.subteams[index];
-                const orbitAngle = index * 90 - 45;
-                const orbitRadius = Math.max(56, department.size * 0.52 + 34);
-                const orbitStyle = {
-                  '--orbit-angle': `${orbitAngle}deg`,
-                  '--orbit-angle-neg': `${-orbitAngle}deg`,
-                  '--orbit-radius': `${orbitRadius}px`,
-                } as React.CSSProperties;
+                const detail = orbitDetails[index];
                 return (
-                  <Fragment key={`${department.id}-${label}`}>
-                    {isOrbiting && (
-                      <span
-                        className={styles.orbitConnector}
-                        style={{
-                          left: `${department.x}%`,
-                          top: `${department.y}%`,
-                          ...orbitStyle,
-                        }}
-                        aria-hidden="true"
-                      />
-                    )}
+                  <Fragment key={`${department.id}-${detail.label}`}>
                     <button
                       type="button"
-                      className={`${styles.satellite} ${isOrbiting ? styles.satelliteSelected : ''}`}
+                      className={`${styles.satellite} ${isOrbiting ? styles.satelliteVisible : ''}`}
                       style={{
-                        left: `${isOrbiting ? department.x : department.x + offset.x}%`,
-                        top: `${isOrbiting ? department.y : department.y + offset.y}%`,
-                        '--satellite-delay': `${-(departmentIndex + index) * 0.45}s`,
-                        ...orbitStyle,
-                      } as React.CSSProperties}
-                      onClick={() => onSatellite(department, label)}
-                      aria-label={`Open ${label} in ${department.name}`}
+                        left: `${department.x + offset.x}%`,
+                        top: `${department.y + offset.y}%`,
+                        '--satellite-delay': `${index * 42}ms`,
+                      } as CSSProperties}
+                      onMouseEnter={() => onHoverStart(department.id)}
+                      onMouseLeave={onHoverEnd}
+                      onFocus={() => onHoverStart(department.id)}
+                      onBlur={onHoverEnd}
+                      onClick={() => onSatellite(department, detail.label)}
+                      tabIndex={isOrbiting ? 0 : -1}
+                      aria-hidden={!isOrbiting}
+                      aria-label={`Open ${detail.label} in ${department.name}`}
                     >
-                      <Image src="/planets/cutouts/moon.webp" width={index < 2 ? 17 : 22} height={index < 2 ? 17 : 22} alt="" />
-                      <span>{index < 2 ? label.split(' ')[0] : label}</span>
+                      <Image src="/planets/cutouts/moon.webp" width={detail.size} height={detail.size} alt="" />
+                      <span><strong>{detail.label}</strong><small>{detail.meta}</small></span>
                     </button>
                   </Fragment>
                 );
@@ -371,68 +392,75 @@ function Dashboard({ department, focused }: { department: Department; focused: s
   const activeWork = department.work.filter((item) => item.state === 'Active').length;
   const averageProgress = Math.round(department.work.reduce((sum, item) => sum + item.progress, 0) / department.work.length);
   return (
-    <aside className={styles.dashboard} aria-live="polite">
-      <header className={styles.dashboardHeader}>
-        <p>DEPARTMENT / {department.code}</p>
-        <div className={styles.dashboardTitleRow}>
-          <span className={styles.dashboardPlanet}><Image src={department.image} fill sizes="72px" alt="" /></span>
-          <div>
-            <h2>{department.name}</h2>
-            <span className={`${styles.health} ${HEALTH_CLASS[department.health]}`}><i /> {department.health}</span>
+    <aside className={styles.sidebar} aria-live="polite">
+      <div className={styles.bookmarkTab} aria-hidden="true"><span>{department.code}</span></div>
+      <div className={styles.dashboard}>
+        <header className={styles.dashboardHeader}>
+          <div className={styles.recordLine}>
+            <p>SELECTED RECORD</p>
+            <span>{department.code}</span>
           </div>
-        </div>
-        <p className={styles.description}>{department.description}</p>
-        <blockquote>“{department.mission}”</blockquote>
-      </header>
-      <div className={styles.metrics}>
-        <div><strong>{department.people.length}</strong><span>PEOPLE</span></div>
-        <div><strong>{department.subteams.length}</strong><span>SUB-TEAMS</span></div>
-        <div><strong>{activeWork}</strong><span>ACTIVE WORK</span></div>
-        <div><strong>{averageProgress}%</strong><span>AVG. PROGRESS</span></div>
-      </div>
-      {focused && (
-        <div className={styles.focusNotice}>
-          <span>IN FOCUS</span><strong>{focused}</strong><small>inside the {department.name} orbit</small>
-        </div>
-      )}
-      <section className={styles.dashboardSection}>
-        <div className={styles.sectionTitle}><h3>People in orbit</h3><span>{String(department.people.length).padStart(2, '0')}</span></div>
-        <div className={styles.peopleGrid}>
-          {department.people.map((person) => (
-            <article key={person.name} className={focused === person.name ? styles.focusedCard : ''}>
-              <span className={styles.avatar}>{person.initials}</span>
-              <span><strong>{person.name}</strong><small>{person.role}</small></span>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className={styles.dashboardSection}>
-        <div className={styles.sectionTitle}><h3>Smaller departments</h3><span>{String(department.subteams.length).padStart(2, '0')}</span></div>
-        <div className={styles.subteamList}>
-          {department.subteams.map((team, index) => (
-            <div key={team} className={focused === team ? styles.focusedRow : ''}>
-              <span>{String(index + 1).padStart(2, '0')}</span><strong>{team}</strong>
-              <small>{5 + ((index * 3 + department.name.length) % 8)} members</small>
+          <div className={styles.dashboardTitleRow}>
+            <div>
+              <h2>{department.name}</h2>
+              <span className={`${styles.health} ${HEALTH_CLASS[department.health]}`}><i /> {department.health}</span>
             </div>
-          ))}
+            <span className={styles.dashboardPlanet}><Image src={department.image} fill sizes="72px" alt="" /></span>
+          </div>
+          <p className={styles.description}>{department.description}</p>
+          <blockquote>“{department.mission}”</blockquote>
+        </header>
+        <div className={styles.metrics}>
+          <div><strong>{department.people.length}</strong><span>PEOPLE</span></div>
+          <div><strong>{activeWork}</strong><span>ACTIVE</span></div>
+          <div><strong>{averageProgress}%</strong><span>PROGRESS</span></div>
         </div>
-      </section>
-      <section className={styles.dashboardSection}>
-        <div className={styles.sectionTitle}><h3>Work in motion</h3><span>{String(department.work.length).padStart(2, '0')}</span></div>
-        <div className={styles.workList}>
-          {department.work.map((work, index) => (
-            <article key={work.title}>
-              <div className={styles.workTopline}>
-                <span>{String(index + 1).padStart(2, '0')}</span><strong>{work.title}</strong>
-                <em className={styles[`state${work.state}`]}>{work.state}</em>
-              </div>
-              <div className={styles.workMeta}><span>{work.owner}</span><span>DUE {work.due.toUpperCase()}</span><span>{work.progress}%</span></div>
-              <div className={styles.progressTrack}><i style={{ width: `${work.progress}%` }} /></div>
-            </article>
-          ))}
-        </div>
-      </section>
-      <footer className={styles.dashboardFooter}><span>LAST SYNC · JUST NOW</span><span>ATHENA KNOWLEDGE GRAPH</span></footer>
+        {focused && (
+          <div className={styles.focusNotice}>
+            <span>ORBIT FOCUS</span>
+            <strong>{focused}</strong>
+            <small>Part of the {department.name} constellation</small>
+          </div>
+        )}
+        <section className={styles.dashboardSection}>
+          <div className={styles.sectionTitle}><h3>People in orbit</h3><span>{String(department.people.length).padStart(2, '0')}</span></div>
+          <div className={styles.peopleList}>
+            {department.people.map((person, index) => (
+              <article key={person.name} className={focused === person.name ? styles.focusedCard : ''}>
+                <span className={styles.personIndex}>{String(index + 1).padStart(2, '0')}</span>
+                <span className={styles.avatar}>{person.initials}</span>
+                <span><strong>{person.name}</strong><small>{person.role}</small></span>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className={styles.dashboardSection}>
+          <div className={styles.sectionTitle}><h3>Sub-teams</h3><span>{String(department.subteams.length).padStart(2, '0')}</span></div>
+          <div className={styles.subteamList}>
+            {department.subteams.map((team) => (
+              <span key={team} className={focused === team ? styles.focusedRow : ''}>{team}</span>
+            ))}
+          </div>
+        </section>
+        <section className={styles.dashboardSection}>
+          <div className={styles.sectionTitle}><h3>Work in motion</h3><span>{String(department.work.length).padStart(2, '0')}</span></div>
+          <div className={styles.workList}>
+            {department.work.map((work, index) => (
+              <article key={work.title}>
+                <div className={styles.workTopline}>
+                  <span>{String(index + 1).padStart(2, '0')}</span><strong>{work.title}</strong>
+                  <em className={styles[`state${work.state}`]}>{work.state}</em>
+                </div>
+                <div className={styles.workMeta}><span>{work.owner}</span><span>{work.due}</span><span>{work.progress}%</span></div>
+                <div className={styles.progressTrack}><i style={{ width: `${work.progress}%` }} /></div>
+              </article>
+            ))}
+          </div>
+        </section>
+        <footer className={styles.dashboardFooter}>
+          <span>SYNCED JUST NOW</span><span>ATHENA / KNOWLEDGE GRAPH</span>
+        </footer>
+      </div>
     </aside>
   );
 }
@@ -441,7 +469,34 @@ export function ConstellationDashboard() {
   const [selectedId, setSelectedId] = useState('engineering');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
+  const [isMapFocused, setIsMapFocused] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selected = DEPARTMENTS.find((item) => item.id === selectedId) ?? DEPARTMENTS[0];
+
+  const startHover = (departmentId: string) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredId(departmentId);
+  };
+
+  const endHover = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHoveredId(null), 140);
+  };
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMapFocused(false);
+        setFocused(null);
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    };
+  }, []);
+
   return (
     <main className={styles.atlas}>
       <AtlasHeader />
@@ -449,9 +504,23 @@ export function ConstellationDashboard() {
         <ConstellationMap
           selected={selected}
           hoveredId={hoveredId}
-          onHover={setHoveredId}
-          onSelect={(department) => { setSelectedId(department.id); setFocused(null); }}
-          onSatellite={(department, label) => { setSelectedId(department.id); setFocused(label); }}
+          isFocused={isMapFocused}
+          onHoverStart={startHover}
+          onHoverEnd={endHover}
+          onSelect={(department) => {
+            setSelectedId(department.id);
+            setFocused(null);
+            setIsMapFocused(true);
+          }}
+          onSatellite={(department, label) => {
+            setSelectedId(department.id);
+            setFocused(label);
+            setIsMapFocused(true);
+          }}
+          onReset={() => {
+            setIsMapFocused(false);
+            setFocused(null);
+          }}
         />
         <Dashboard department={selected} focused={focused} />
       </div>
