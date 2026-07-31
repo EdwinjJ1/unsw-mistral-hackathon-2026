@@ -1,69 +1,147 @@
-# UNSW × Mistral AI × Atlassian Hackathon 2026
+# Synapse
 
-> **Status:** 🚧 Scaffolding. The project direction, plan, and task assignments are being finalised — see [Next steps](#next-steps).
+**A second brain for your project — and a bot that actually chases people for updates.**
 
-## Challenge
+Built for the **UNSW × Mistral AI × Atlassian Hackathon 2026**.
 
-> How might AI help multi-disciplinary teams make sense of information, present ideas, align on decisions, and review work more effectively?
+> 📋 **Team: read [`PLAN.md`](PLAN.md) before writing any code.** It has the scope, the architecture, the workstream you own, and the timeline. This README is the summary; PLAN.md is the contract.
 
-The context is **information overload**: data and generated content keep growing, while Design, Engineering, Product, Operations, Business, Law, and Science all work with different formats, terminology, priorities, and sources of truth.
+---
 
-## Hard requirements
+## The problem
 
-| Requirement | Note |
+Multi-disciplinary teams do not fail because information does not exist. They fail because:
+
+1. **Information decays.** The project's real state is scattered across Discord, docs, tickets, and heads. By the time anyone reconciles it, it is stale.
+2. **Nobody wants to be the person who chases.** Asking "is that done yet?" — repeatedly, across teams — has a *social* cost. So it does not happen. So the information decays further.
+
+Jira and Notion solve storage. They are **passive**: they wait for humans to update them, which is precisely the step that fails.
+
+## The idea
+
+**A bot pays no social cost.** It can ask the same person the same question five times without resentment, cross team boundaries without politics, and do it at full coverage in real time.
+
+Synapse is two halves of one loop:
+
+### 🧠 The brain
+
+An Obsidian-style force-directed knowledge graph. Nodes are neurons, edges are synapses.
+
+- **Big nodes = teams.** Size = workload, colour = health.
+- **Click a node → it expands** into a detail view: AI summary, project status, task status, owners, deadlines, blockers, cross-team dependencies, and how fresh each fact is.
+- Sub-nodes inside each team are people and tasks; edges cross team boundaries to show what depends on what.
+- **It moves.** When the bot learns something, the graph visibly updates.
+
+### 🤖 The bot
+
+A Discord bot that treats the graph as the source of truth and acts as its hands:
+
+| | |
 | --- | --- |
-| Use **Mistral APIs** | OpenAI / Anthropic APIs are not allowed |
-| Address information overload **and** teamwork | Both, not one |
-| Specialised models & workflows | Prefer a pipeline of focused calls over one giant prompt |
-| Core user flow must be **demonstrable** | Judges can only score what runs |
+| **Assigns** | DMs each person the work they own, in plain language |
+| **Directs** | Tells them who to talk to and what to confirm — read from graph edges, not guessed |
+| **Chases** | Periodic DM check-ins on progress and blockers |
+| **Absorbs** | Extracts the real signal from the reply, drops the chit-chat, writes a delta back to the graph |
 
-No-code prototypes and deeper technical systems are both acceptable.
+The graph updates → the next round of DMs reflects the new state. The loop closes.
 
-## Judging criteria
+## 🔍 The hidden signal
 
-**Challenge-specific:** Relevance · Usefulness · Generality · *Hidden Signals Award* (surface a non-obvious pattern, contradiction, anomaly, or connection).
+Because every team's answers land in **one** graph, Synapse sees what no individual can:
 
-**General:** Value & human insight · Creativity & design · Feasibility & scalability · Technical execution · Use of AI (support human thinking, don't replace it; fact-check output; right model for the job).
+> **Engineering:** "auth is done, shipped Thursday."
+> **Ops:** "still waiting on auth, we're blocked."
 
-## Schedule
+Both people were telling the truth as they understood it. Neither contradiction would surface in a standup. Synapse flags it, shows both sources, and asks both owners one clarifying question.
 
-| When | What |
+*This is the [Hidden Signals Award](#judging-criteria) hook.*
+
+## Architecture
+
+```
+ Discord DMs  ──►  Bot (discord.js)  ──►  Mistral pipeline  ──►  Graph store (SQLite)
+      ▲                                          │                       │
+      └──────────  outbound DMs  ◄───────────────┘                       │
+                                                                         ▼
+                                            Web app (Next.js + force-graph)  ◄── live updates
+```
+
+TypeScript end to end so the frontend, bot, and API share one `Graph` type. Details and rationale in [`PLAN.md` §4](PLAN.md).
+
+### Mistral usage
+
+Six specialised calls, not one giant prompt — an explicit hackathon requirement:
+
+| Job | Model |
 | --- | --- |
-| Fri 31 Jul | Problem reveal, team prep, hacking begins |
-| Sat 1 Aug, 12:00 | **Submission due** |
-| Sat 1 Aug, afternoon | Judging, top-team pitches |
-| Sat 1 Aug, 16:00 | Winners announced |
+| Triage a DM reply (update / blocker / question / noise) | `mistral-small` |
+| Extract a structured graph delta | `mistral-large` |
+| Compose the outbound DM | `mistral-large` |
+| Semantic linking across teams | `mistral-embed` |
+| Cross-team contradiction detection | `mistral-large` |
+| *Stretch:* whiteboard photo → nodes | `pixtral` |
 
-Always check times against the latest official announcement.
+> ⚠️ **No OpenAI or Anthropic APIs anywhere in this repo.** It is a hard disqualifier.
+
+## The demo (this is what gets scored)
+
+One complete loop, live:
+
+1. Graph is seeded with a realistic 4-team product launch.
+2. Bot DMs someone: *"You own the rollback runbook, due tomorrow. Confirm the retention window with @legal first."*
+3. They reply in Discord: *"runbook's done, but legal never got back to me — blocked."*
+4. Mistral extracts the delta → task turns green, a `Blocker` node appears, edge to Legal.
+5. **The graph on screen changes in front of the judges.**
+6. Contradiction fires: Legal said "all approvals cleared." Synapse flags it with both sources.
 
 ## Repository layout
 
 ```
 .
-├── README.md                              # You are here — the entry point for the team
-├── PLAN.md                                # (coming) Agreed plan, scope, and task assignments
-└── docs/
-    └── hackathon-research-and-ideas.md    # Research notes + idea backlog + shortlist
+├── README.md    # What we're building and why — start here
+└── PLAN.md      # Scope, architecture, workstreams, timeline, risks — read before coding
 ```
 
-## Idea shortlist
-
-Full write-ups (inputs, outputs, demo moment, MVP) live in [`docs/hackathon-research-and-ideas.md`](docs/hackathon-research-and-ideas.md).
-
-1. **Spec Drift Radar** — detect when implementation, design, testing, and requirements have silently drifted apart. Strongest overall fit and clearest Hidden Signals demo.
-2. **AI Meeting Decision Radar** — simplest complete MVP, easiest story to communicate.
-3. **Semantic Misalignment Detector** — most distinctive direction: same words, different meanings per team.
-4. **Qual × Quant Insight Finder** — strong creativity if good sample data is available.
-
-## Next steps
-
-- [ ] Lock the project direction
-- [ ] Write `PLAN.md` (architecture, MVP scope, stretch goals, demo script)
-- [ ] Assign tasks to team members
-- [ ] Set up the repo skeleton (frontend / backend / Mistral API layer)
+Code layout lands once Track A ships the graph core.
 
 ## Team
 
-| Name | Role | Owns |
+Fill in your name and claim a track. See [`PLAN.md` §6](PLAN.md) for what each track owns.
+
+| Name | Track | Owns |
 | --- | --- | --- |
-| _TBD_ | | |
+| _TBD_ | **A — Graph core** | SQLite schema, `Graph` types, read/write API, seed data |
+| _TBD_ | **B — Web brain** | Force-graph view, node expansion, detail panel |
+| _TBD_ | **C — Discord bot** | Bot setup, DM send/receive, check-in scheduler |
+| _TBD_ | **D — Mistral + pitch** | The six calls, prompts, schemas, deck, backup recording |
+
+**Everyone starts against fake data. Nobody waits for anybody.** Integrate at the halfway mark, not at the end.
+
+## Getting started
+
+Not yet — the skeleton lands with Track A. Two things to do right now:
+
+1. Claim your track in the table above.
+2. Track C: **start the Discord bot setup immediately.** It is the most likely time sink of the whole build.
+
+> 🔐 This repo is **public**. Never commit API keys, tokens, `.env` files, or real personal data. `.gitignore` covers the obvious cases — it is not a safety net you should test.
+
+## Judging criteria
+
+**Challenge-specific:** Relevance · Usefulness · Generality · **Hidden Signals Award**
+
+**General:** Value & human insight · Creativity & design · Feasibility & scalability · Technical execution · Use of AI (support human thinking, don't replace it)
+
+Responsibility is scored explicitly, and a bot that DMs people and remembers what they say invites obvious questions. Our answers are in [`PLAN.md` §10](PLAN.md) — know them before the pitch.
+
+## Schedule
+
+| When | What |
+| --- | --- |
+| Fri 31 Jul | Problem reveal, hacking begins |
+| **Sat 1 Aug, 10:00** | **Backup demo video recorded** — non-negotiable |
+| Sat 1 Aug, 11:00 | Hard feature freeze |
+| **Sat 1 Aug, 12:00** | **Submission due** |
+| Sat 1 Aug, 16:00 | Winners announced |
+
+Check times against the latest official announcement.
