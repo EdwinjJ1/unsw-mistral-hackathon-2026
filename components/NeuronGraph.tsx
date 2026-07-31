@@ -155,7 +155,33 @@ function isHotLink(link: RFLink, now: number): boolean {
   );
 }
 
-export default function NeuronGraph() {
+/** Subset of the react-force-graph imperative handle this component uses. */
+interface ForceGraphHandle {
+  d3Force: (name: string) => { strength?: (v: number) => void; distance?: (v: number) => void } | undefined;
+  zoomToFit: (ms?: number, padding?: number) => void;
+}
+
+interface Highlight {
+  nodeId: string | null;
+  nodes: Set<string>;
+  links: Set<string>;
+}
+
+const NO_HIGHLIGHT: Highlight = {
+  nodeId: null,
+  nodes: new Set(),
+  links: new Set(),
+};
+
+const DIM = 0.3;
+
+export interface NeuronGraphProps {
+  /** Fired with the node's slug id on click, or "" when the canvas is cleared. */
+  onSelect?: (nodeId: string) => void;
+  selectedId?: string;
+}
+
+export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -171,6 +197,24 @@ export default function NeuronGraph() {
   }, []);
 
   const { graph } = useGraphPoll();
+  // Canvas accessors read the graph through a ref so their identity stays
+  // stable across polls; a new paint closure would force a needless re-render.
+  const graphRef = useRef<RenderGraph>(graph);
+  useEffect(() => {
+    graphRef.current = graph;
+  }, [graph]);
+
+  // Hover lives in a ref rather than state: the canvas already repaints every
+  // frame, so highlighting costs nothing and never triggers a React render
+  // (a render would rebuild the link particles).
+  const highlightRef = useRef<Highlight>(NO_HIGHLIGHT);
+
+  // Standalone fallback when no onSelect is wired up yet.
+  const [ownSelectedId, setOwnSelectedId] = useState('');
+  const [card, setCard] = useState<{ node: RFNode; x: number; y: number } | null>(
+    null,
+  );
+  const activeSelectedId = onSelect ? (selectedId ?? '') : ownSelectedId;
 
   // Track which links are "live" as a stable key. force-graph rebuilds a link's
   // particle set whenever the linkDirectionalParticles accessor identity
@@ -201,15 +245,21 @@ export default function NeuronGraph() {
     (node: RFNode, ctx: CanvasRenderingContext2D, scale: number) => {
       if (node.x === undefined || node.y === undefined) return;
       const { x, y } = node;
+      const graph = graphRef.current;
+      const highlight = highlightRef.current;
       const radius = Math.sqrt(Math.max(0, nodeVal(node, graph))) * NODE_REL_SIZE;
       const rgb = nodeRgb(node, graph);
       const now = Date.now();
+
+      const selected = node.id === activeSelectedId;
+      const dim =
+        highlight.nodeId && !highlight.nodes.has(node.id) ? DIM : 1;
 
       // Soft halo — this is what makes the node read as a neuron rather than a
       // dot in a generic node-link diagram.
       const haloRadius = radius * 3;
       const halo = ctx.createRadialGradient(x, y, 0, x, y, haloRadius);
-      halo.addColorStop(0, rgba(rgb, 0.25));
+      halo.addColorStop(0, rgba(rgb, (selected ? 0.45 : 0.25) * dim));
       halo.addColorStop(1, rgba(rgb, 0));
       ctx.fillStyle = halo;
       ctx.beginPath();
@@ -219,8 +269,16 @@ export default function NeuronGraph() {
       // Solid core.
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, TAU);
-      ctx.fillStyle = rgba(rgb, 1);
+      ctx.fillStyle = rgba(rgb, dim);
       ctx.fill();
+
+      if (selected) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 3 / scale, 0, TAU);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 1.5 / scale;
+        ctx.stroke();
+      }
 
       // Change pulse: an expanding, fading ring driven straight off the clock.
       const age = now - millis(node.updatedAt);
@@ -229,29 +287,30 @@ export default function NeuronGraph() {
         const fade = (1 - phase) * (1 - age / PULSE_WINDOW_MS);
         ctx.beginPath();
         ctx.arc(x, y, radius * 1.4 + phase * radius * 2.6, 0, TAU);
-        ctx.strokeStyle = rgba(rgb, 0.85 * fade);
+        ctx.strokeStyle = rgba(rgb, 0.85 * fade * dim);
         ctx.lineWidth = 2 / scale;
         ctx.stroke();
       }
 
-      if (node.type === 'Team') {
+      const showLabel =
+        node.type === 'Team' || selected || highlight.nodeId === node.id;
+      if (showLabel) {
         ctx.font = `${11 / scale}px ui-sans-serif, system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillStyle = '#cbd5e1';
+        ctx.fillStyle = `rgba(203,213,225,${dim})`;
         ctx.fillText(node.label, x, y + radius + 6 / scale);
       }
     },
-    [graph],
+    [activeSelectedId],
   );
 
-  const linkColor = useCallback(
-    (link: RFLink) => {
-      const { rgb, alpha } = linkStyle(link);
-      return rgba(rgb, alpha);
-    },
-    [],
-  );
+  const linkColor = useCallback((link: RFLink) => {
+    const { rgb, alpha } = linkStyle(link);
+    const highlight = highlightRef.current;
+    const dim = highlight.nodeId && !highlight.links.has(link.id) ? DIM : 1;
+    return rgba(rgb, alpha * dim);
+  }, []);
 
   const linkWidth = useCallback((link: RFLink) => linkStyle(link).width, []);
 
@@ -275,6 +334,70 @@ export default function NeuronGraph() {
       : rgba(RGB.edge, 0.55);
   }, []);
 
+  const handleNodeHover = useCallback((node: RFNode | null) => {
+    if (!node) {
+      highlightRef.current = NO_HIGHLIGHT;
+      return;
+    }
+    const nodes = new Set<string>([node.id]);
+    const links = new Set<string>();
+    for (const link of graphRef.current.links) {
+      const a = endpointId(link.source);
+      const b = endpointId(link.target);
+      if (a !== node.id && b !== node.id) continue;
+      links.add(link.id);
+      nodes.add(a);
+      nodes.add(b);
+    }
+    highlightRef.current = { nodeId: node.id, nodes, links };
+  }, []);
+
+  const handleNodeClick = useCallback(
+    (node: RFNode, event: MouseEvent) => {
+      if (onSelect) {
+        onSelect(node.id);
+        return;
+      }
+      console.log(node.id);
+      setOwnSelectedId(node.id);
+      setCard({ node, x: event.offsetX, y: event.offsetY });
+    },
+    [onSelect],
+  );
+
+  const handleBackgroundClick = useCallback(() => {
+    if (onSelect) {
+      onSelect('');
+      return;
+    }
+    console.log('');
+    setOwnSelectedId('');
+    setCard(null);
+  }, [onSelect]);
+
+  // Physics. The imperative handle only exists once the dynamically imported
+  // component has mounted, so the forces are applied from the first engine tick.
+  const fgRef = useRef<ForceGraphHandle | null>(null);
+  const forcesApplied = useRef(false);
+  const didInitialFit = useRef(false);
+
+  const handleEngineTick = useCallback(() => {
+    if (forcesApplied.current) return;
+    const fg = fgRef.current;
+    if (!fg) return;
+    fg.d3Force('charge')?.strength?.(-120);
+    fg.d3Force('link')?.distance?.(55);
+    forcesApplied.current = true;
+  }, []);
+
+  // Only on the very first settle — re-fitting on every poll would yank the
+  // viewport around exactly when a judge is looking at a live update.
+  const handleEngineStop = useCallback(() => {
+    if (didInitialFit.current) return;
+    didInitialFit.current = true;
+    fgRef.current?.zoomToFit(400, 60);
+  }, []);
+
   return (
     <div
       ref={wrapRef}
@@ -287,13 +410,14 @@ export default function NeuronGraph() {
     >
       {size.width > 0 && (
         <ForceGraph2D
+          fgRef={fgRef as React.MutableRefObject<unknown>}
           graphData={graph}
           width={size.width}
           height={size.height}
           backgroundColor={BACKGROUND}
           nodeRelSize={NODE_REL_SIZE}
-          nodeVal={(n: RFNode) => nodeVal(n, graph)}
-          nodeLabel={(n: RFNode) => n.label}
+          nodeVal={(n: RFNode) => nodeVal(n, graphRef.current)}
+          nodeLabel={() => ''}
           nodeCanvasObject={paintNode}
           linkColor={linkColor}
           linkWidth={linkWidth}
@@ -301,10 +425,41 @@ export default function NeuronGraph() {
           linkDirectionalParticleSpeed={0.006}
           linkDirectionalParticleWidth={linkParticleWidth}
           linkDirectionalParticleColor={linkParticleColor}
+          onNodeHover={handleNodeHover}
+          onNodeClick={handleNodeClick}
+          onBackgroundClick={handleBackgroundClick}
+          d3VelocityDecay={0.3}
+          cooldownTicks={150}
+          onEngineTick={handleEngineTick}
+          onEngineStop={handleEngineStop}
           // The pulse ring animates off Date.now(), so the canvas has to keep
           // repainting even when the physics engine has gone quiet.
           autoPauseRedraw={false}
         />
+      )}
+
+      {card && (
+        <div
+          style={{
+            position: 'absolute',
+            left: Math.min(card.x + 12, Math.max(0, size.width - 240)),
+            top: Math.min(card.y + 12, Math.max(0, size.height - 110)),
+            width: 220,
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(148,163,184,0.25)',
+            background: 'rgba(15,23,42,0.92)',
+            color: '#e2e8f0',
+            font: '12px ui-sans-serif, system-ui, sans-serif',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{card.node.label}</div>
+          <div style={{ color: '#94a3b8' }}>{card.node.type}</div>
+          {card.node.status && (
+            <div style={{ color: '#94a3b8' }}>{card.node.status}</div>
+          )}
+        </div>
       )}
     </div>
   );

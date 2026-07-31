@@ -289,11 +289,11 @@ const edges: GraphEdge[] = [
     updatedAt: ago(6 * HOUR),
   },
   {
-    id: 'edge.depends.checklist-on-runbook',
-    from: 'task.launch-checklist',
-    to: 'task.rollback-runbook',
+    id: 'edge.depends.onboarding-on-auth',
+    from: 'task.onboarding-flow',
+    to: 'task.auth-migration',
     type: 'DEPENDS_ON',
-    note: 'Go/no-go needs a signed-off rollback procedure.',
+    note: 'The new onboarding screens sit behind the migrated auth flow.',
     updatedAt: ago(3 * HOUR),
   },
 
