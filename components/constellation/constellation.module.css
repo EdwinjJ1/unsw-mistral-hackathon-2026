@@ -103,6 +103,36 @@
   font-size: 7px;
 }
 
+.atlasNav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+  margin-right: 24px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.atlasNav a {
+  padding-bottom: 3px;
+  border-bottom: 1px solid transparent;
+}
+
+.atlasNav a:hover,
+.atlasNav a:focus-visible {
+  border-color: var(--ink);
+  outline: none;
+}
+
+.offlineDot {
+  width: 6px;
+  height: 6px;
+  border: 1px solid #9f583f;
+  border-radius: 50%;
+}
+
 .headerMeta span {
   display: inline-flex;
   align-items: center;
@@ -122,6 +152,36 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(350px, 28vw);
 }
+
+.emptyAtlas {
+  min-height: calc(100dvh - 64px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 7vw;
+  background:
+    radial-gradient(circle at 72% 42%, rgb(25 63 93 / 10%) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 55%, rgb(31 36 34 / 12%) 0 2px, transparent 3px);
+}
+
+.emptyAtlas p {
+  margin: 0 0 18px;
+  color: var(--blue);
+  font: 500 9px/1 'IBM Plex Mono', monospace;
+  letter-spacing: .12em;
+}
+
+.emptyAtlas h1 {
+  margin: 0;
+  font-size: clamp(56px, 8vw, 112px);
+  font-weight: 400;
+  line-height: .82;
+  letter-spacing: -.055em;
+}
+
+.emptyAtlas h1 em { color: var(--blue); font-weight: 400; }
+.emptyAtlas > span { max-width: 570px; margin-top: 30px; color: var(--ink-soft); font-size: 19px; line-height: 1.45; }
+.emptyAtlas a { width: fit-content; margin-top: 30px; padding-bottom: 5px; border-bottom: 1px solid var(--ink); font: 500 9px/1 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
 
 .mapPanel {
   position: relative;
@@ -890,6 +950,10 @@
 
 .stateBlocked {
   color: #9d3f2c;
+}
+
+.stateDone {
+  color: #687d53;
 }
 
 .workMeta {

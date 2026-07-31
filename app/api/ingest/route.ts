@@ -1,17 +1,23 @@
 import { errorResponse, readJson } from '@/lib/api-response';
-import { applyDeltaWithSignals } from '@/lib/graph-service';
-import { generateGraphFromText } from '@/lib/mistral-bridge';
-import { parseDelta, parseIngestRequest } from '@/lib/validation';
+import { ingestDocumentSet } from '@/lib/ingest';
+import { parseIngestRequest } from '@/lib/validation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const { text } = parseIngestRequest(await readJson(request));
-    const delta = parseDelta(await generateGraphFromText(text));
-    await applyDeltaWithSignals(delta);
-    return Response.json(delta);
+    const body = await readJson(request) as { text?: unknown; sourceName?: unknown };
+    const { text } = parseIngestRequest(body);
+    const sourceName = typeof body.sourceName === 'string' && body.sourceName.trim()
+      ? body.sourceName.trim().slice(0, 160)
+      : 'pasted-document.md';
+    const result = await ingestDocumentSet({
+      documents: [{ name: sourceName, text }],
+      sourceName,
+      replace: false,
+    });
+    return Response.json(result);
   } catch (error) {
     return errorResponse(error);
   }

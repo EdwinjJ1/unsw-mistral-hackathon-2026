@@ -150,13 +150,17 @@ The default SQLite database is `./athena.db`; override it with
 `DATABASE_PATH`. Useful engineering checks are available as `npm test`,
 `npm run typecheck`, and `npm run build`.
 
-The five frozen endpoints are:
+The core graph and handoff endpoints are:
 
 - `GET /api/graph`
 - `GET /api/team/:id`
 - `GET /api/person/:discordUserId`
 - `POST /api/delta`
 - `POST /api/ingest`
+- `GET /api/plan`
+- `GET /api/plan/handoff`
+- `POST /api/people/discord`
+- `GET|POST /api/plan/dispatch`
 
 For the rest of the team, continue in this order:
 

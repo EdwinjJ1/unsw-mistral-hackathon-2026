@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import type { GraphApi } from './api';
+import { createDiscordRecipientDirectory, dispatchPlanHandoffs } from './dispatch';
 import { sendCheckIn, sendHello } from './flows';
 
 export const commandData = [
@@ -18,6 +19,10 @@ export const commandData = [
     .addUserOption((option) =>
       option.setName('user').setDescription('Who to DM. Defaults to you.').setRequired(false),
     )
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('athena-dispatch')
+    .setDescription('Fetch the latest AI plan and dispatch every pending owner handoff.')
     .toJSON(),
   new SlashCommandBuilder()
     .setName('athena-status')
@@ -43,6 +48,17 @@ export async function handleCommand(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
+    if (interaction.commandName === 'athena-dispatch') {
+      if (!interaction.guildId) throw new Error('Run this command inside the configured server.');
+      const result = await dispatchPlanHandoffs(
+        createDiscordRecipientDirectory(interaction.client, interaction.guildId),
+        api,
+      );
+      await interaction.editReply(
+        `Plan ${result.planId}: ${result.sent} sent, ${result.unmatched} unmatched, ${result.failed} failed, ${result.skipped} already handled.`,
+      );
+      return;
+    }
     if (interaction.commandName === 'athena-hello') {
       await sendHello(target);
       await interaction.editReply(`Sent a hello DM to ${target.username}.`);

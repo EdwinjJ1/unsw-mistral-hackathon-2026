@@ -11,17 +11,20 @@
     "start": "next start",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "bot:dev": "tsx --env-file-if-exists=.env bot/index.ts",
-    "test": "tsx --test lib/*.test.ts",
+    "test": "tsx --test lib/*.test.ts bot/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource/eb-garamond": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@mistralai/mistralai": "^2.5.0",
     "better-sqlite3": "12.11.1",
     "discord.js": "14.27.0",
     "next": "15.5.22",
+    "officeparser": "^7.5.1",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.4.3"
   },
   "overrides": {
     "postcss": "8.5.25",

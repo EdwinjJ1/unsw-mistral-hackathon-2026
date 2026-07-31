@@ -128,6 +128,52 @@
       }
     },
     {
+      "id": "person.guts",
+      "type": "Person",
+      "label": "GUTS",
+      "teamId": "team.product",
+      "status": "not_started",
+      "summary": "Demo tester responsible for validating the AI-plan-to-Discord execution loop.",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/guts",
+        "quote": "GUTS is the exact Discord username used for the end-to-end delivery test."
+      }
+    },
+    {
+      "id": "task.guts-plan-dispatch-test",
+      "type": "Task",
+      "label": "Run AI plan to Discord smoke test",
+      "teamId": "team.product",
+      "status": "not_started",
+      "summary": "Generate the AI plan, confirm Athena sends the grouped private handoff, and acknowledge the assigned work.",
+      "ownerId": "person.guts",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/tasks/guts-plan-dispatch-test",
+        "quote": "GUTS owns the full AI plan to Discord private-message smoke test."
+      }
+    },
+    {
+      "id": "task.guts-completion-loop",
+      "type": "Task",
+      "label": "Verify Discord completion updates",
+      "teamId": "team.product",
+      "status": "not_started",
+      "summary": "Reply with DONE or BLOCKED and verify the task status advances in the shared graph.",
+      "ownerId": "person.guts",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/tasks/guts-completion-loop",
+        "quote": "After receiving the plan, GUTS verifies that a Discord reply advances task status."
+      }
+    },
+    {
       "id": "task.launch-brief",
       "type": "Task",
       "label": "Refresh launch brief",
@@ -453,6 +499,55 @@
         "kind": "seed",
         "ref": "athena-launch/ownership/morgan-faq",
         "quote": "Morgan owns the launch FAQ."
+      }
+    },
+    {
+      "id": "person.guts--MEMBER_OF--team.product",
+      "from": "person.guts",
+      "to": "team.product",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/guts-product",
+        "quote": "GUTS is on Product for the end-to-end delivery test."
+      }
+    },
+    {
+      "id": "person.guts--OWNS--task.guts-plan-dispatch-test",
+      "from": "person.guts",
+      "to": "task.guts-plan-dispatch-test",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/guts-plan-dispatch",
+        "quote": "GUTS owns the AI plan to Discord smoke test."
+      }
+    },
+    {
+      "id": "person.guts--OWNS--task.guts-completion-loop",
+      "from": "person.guts",
+      "to": "task.guts-completion-loop",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/guts-completion-loop",
+        "quote": "GUTS owns verification of Discord completion updates."
+      }
+    },
+    {
+      "id": "task.guts-completion-loop--DEPENDS_ON--task.guts-plan-dispatch-test",
+      "from": "task.guts-completion-loop",
+      "to": "task.guts-plan-dispatch-test",
+      "type": "DEPENDS_ON",
+      "note": "The reply-and-status test starts after GUTS receives the generated plan handoff.",
+      "updatedAt": "2026-07-31T06:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/dependencies/guts-completion-after-dispatch",
+        "quote": "GUTS first receives the plan, then replies to advance the work."
       }
     },
     {
