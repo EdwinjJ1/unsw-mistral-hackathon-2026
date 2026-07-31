@@ -13,6 +13,10 @@ export interface BotConfig {
   checkinIntervalMs: number;
   /** Discord user ids the scheduler DMs each tick. Empty disables ticks. */
   checkinUserIds: string[];
+  /** Poll interval for persistent task reminders. 0 disables reminder delivery. */
+  reminderPollIntervalMs: number;
+  /** Shared server/worker secret for reminder queue routes. */
+  reminderWorkerSecret?: string;
 }
 
 function requireEnv(name: string): string {
@@ -35,6 +39,9 @@ export function loadConfig(): BotConfig {
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean),
+    reminderPollIntervalMs:
+      Number.parseInt(process.env.REMINDER_POLL_INTERVAL_MS ?? '15000', 10) || 0,
+    reminderWorkerSecret: process.env.REMINDER_WORKER_SECRET?.trim() || undefined,
   };
 }
 
