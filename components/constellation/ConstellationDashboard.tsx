@@ -1,8 +1,11 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { fetchGraph } from '@/lib/client-api';
+import type { Graph, Status } from '@/lib/types';
 import styles from './constellation.module.css';
 
 type Health = 'On track' | 'Watch' | 'At risk';
@@ -12,7 +15,7 @@ type WorkItem = {
   owner: string;
   progress: number;
   due: string;
-  state: 'Active' | 'Review' | 'Blocked';
+  state: 'Active' | 'Review' | 'Blocked' | 'Done';
 };
 type ReminderPreset = '15' | '60' | '1440' | 'custom';
 type ActionStatus = {
@@ -41,7 +44,7 @@ type Department = {
   work: WorkItem[];
 };
 
-const DEPARTMENTS: Department[] = [
+const ART_DEPARTMENTS: Department[] = [
   {
     id: 'engineering', name: 'Engineering', code: 'ENG · 01',
     image: '/planets/cutouts/earth.webp', x: 17, y: 48, size: 212, health: 'Watch',
@@ -224,12 +227,6 @@ const DEPARTMENTS: Department[] = [
   },
 ];
 
-const NETWORK_LINKS = [
-  ['engineering', 'product'], ['engineering', 'operations'], ['engineering', 'research'],
-  ['product', 'design'], ['product', 'growth'], ['design', 'people'], ['design', 'research'],
-  ['research', 'strategy'], ['operations', 'people'], ['operations', 'finance'],
-  ['people', 'legal'], ['growth', 'finance'], ['finance', 'legal'], ['legal', 'strategy'],
-] as const;
 const SATELLITE_OFFSETS = [
   { x: -8, y: -10 }, { x: 9, y: -8 }, { x: -10, y: 10 }, { x: 10, y: 10 },
 ];
@@ -246,17 +243,101 @@ function localDateTimeValue(timestamp: number): string {
   return new Date(localTimestamp).toISOString().slice(0, 16);
 }
 
-function AtlasHeader() {
+function statusToWork(status?: Status): WorkItem['state'] {
+  if (status === 'done') return 'Done';
+  if (status === 'blocked') return 'Blocked';
+  if (status === 'at_risk') return 'Review';
+  return 'Active';
+}
+
+function statusToProgress(status?: Status) {
+  if (status === 'done') return 100;
+  if (status === 'in_progress') return 64;
+  if (status === 'at_risk') return 45;
+  if (status === 'blocked') return 24;
+  return 8;
+}
+
+function teamOfNode(graph: Graph, nodeId: string) {
+  const node = graph.nodes.find((item) => item.id === nodeId);
+  return node?.type === 'Team' ? node.id : node?.teamId;
+}
+
+function deriveDepartments(graph: Graph): { departments: Department[]; links: [string, string][] } {
+  const teams = graph.nodes.filter((node) => node.type === 'Team');
+  const departments = teams.map((team, index): Department => {
+    const art = ART_DEPARTMENTS[index % ART_DEPARTMENTS.length];
+    const people = graph.nodes.filter((node) => node.type === 'Person' && node.teamId === team.id);
+    const tasks = graph.nodes.filter((node) => node.type === 'Task' && node.teamId === team.id);
+    const connectedIds = new Set<string>();
+    for (const edge of graph.edges) {
+      const fromTeam = teamOfNode(graph, edge.from);
+      const toTeam = teamOfNode(graph, edge.to);
+      if (fromTeam === team.id && toTeam && toTeam !== team.id) connectedIds.add(toTeam);
+      if (toTeam === team.id && fromTeam && fromTeam !== team.id) connectedIds.add(fromTeam);
+    }
+    const blocked = tasks.some((task) => task.status === 'blocked');
+    const risky = tasks.some((task) => task.status === 'at_risk' || (!task.ownerId && task.status !== 'done'));
+    return {
+      id: team.id,
+      name: team.label,
+      code: `${team.id.replace(/^team\./, '').slice(0, 3).toUpperCase()} · ${String(index + 1).padStart(2, '0')}`,
+      image: art.image,
+      x: art.x,
+      y: art.y,
+      size: index === 0 ? Math.max(150, art.size) : art.size,
+      health: blocked ? 'At risk' : risky ? 'Watch' : 'On track',
+      description: team.summary ?? `${team.label} work identified from the imported organisation corpus.`,
+      mission: team.sourceRef?.quote ?? team.summary ?? `Keep ${team.label} work visible, owned and current.`,
+      people: people.map((person) => {
+        const open = tasks.filter((task) => task.ownerId === person.id && task.status !== 'done').length;
+        return {
+          name: person.label,
+          role: open ? `${open} open work item${open === 1 ? '' : 's'}` : 'Team member',
+          initials: person.label.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
+        };
+      }),
+      subteams: [...connectedIds]
+        .map((id) => graph.nodes.find((node) => node.id === id)?.label)
+        .filter((label): label is string => Boolean(label)),
+      work: tasks.map((task) => ({
+        title: task.label,
+        owner: graph.nodes.find((node) => node.id === task.ownerId)?.label ?? 'Needs confirmation',
+        progress: statusToProgress(task.status),
+        due: task.dueDate
+          ? new Date(`${task.dueDate}T00:00:00`).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })
+          : 'Unscheduled',
+        state: statusToWork(task.status),
+      })),
+    };
+  });
+  const known = new Set(departments.map((department) => department.id));
+  const links = graph.edges.flatMap((edge): [string, string][] => {
+    const from = teamOfNode(graph, edge.from);
+    const to = teamOfNode(graph, edge.to);
+    return from && to && from !== to && known.has(from) && known.has(to) ? [[from, to]] : [];
+  });
+  return {
+    departments,
+    links: [...new Map(links.map((link) => [link.slice().sort().join('--'), link])).values()],
+  };
+}
+
+function AtlasHeader({ teams, bodies, live }: { teams: number; bodies: number; live: boolean }) {
   return (
     <header className={styles.atlasHeader}>
       <div className={styles.brandLockup}>
         <span className={styles.brandMark}>A</span>
         <span><strong>Athena</strong><small>ORGANISATION ATLAS</small></span>
       </div>
+      <nav className={styles.atlasNav} aria-label="Athena actions">
+        <Link href="/import">Analyse documents</Link>
+        <Link href="/plan">Delivery plan</Link>
+      </nav>
       <div className={styles.headerMeta}>
-        <span><i className={styles.liveDot} /> LIVE CONSTELLATION</span>
-        <span>10 TEAMS · 40 ORBITAL BODIES</span>
-        <span>31.07.26</span>
+        <span><i className={live ? styles.liveDot : styles.offlineDot} /> {live ? 'LIVE CONSTELLATION' : 'CONNECTING'}</span>
+        <span>{teams} TEAMS · {bodies} ORBITAL BODIES</span>
+        <span>{new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
       </div>
     </header>
   );
@@ -273,8 +354,10 @@ function MapLegend({ isFocused }: { isFocused: boolean }) {
 }
 
 function ConstellationMap({
-  selected, hoveredId, isFocused, onHoverStart, onHoverEnd, onSelect, onSatellite, onReset,
+  departments, links, selected, hoveredId, isFocused, onHoverStart, onHoverEnd, onSelect, onSatellite, onReset,
 }: {
+  departments: Department[];
+  links: [string, string][];
   selected: Department;
   hoveredId: string | null;
   isFocused: boolean;
@@ -284,7 +367,7 @@ function ConstellationMap({
   onSatellite: (department: Department, label: string) => void;
   onReset: () => void;
 }) {
-  const byId = useMemo(() => new Map(DEPARTMENTS.map((item) => [item.id, item])), []);
+  const byId = useMemo(() => new Map(departments.map((item) => [item.id, item])), [departments]);
   const orbitingId = isFocused ? selected.id : hoveredId;
   const highlightedId = isFocused ? selected.id : hoveredId ?? selected.id;
   const satelliteOffsets = isFocused ? FOCUSED_SATELLITE_OFFSETS : SATELLITE_OFFSETS;
@@ -311,7 +394,7 @@ function ConstellationMap({
         } as CSSProperties}
       >
         <svg className={`${styles.network} ${isFocused ? styles.networkFocused : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          {NETWORK_LINKS.map(([fromId, toId], index) => {
+          {links.map(([fromId, toId], index) => {
             const from = byId.get(fromId);
             const to = byId.get(toId);
             if (!from || !to) return null;
@@ -354,7 +437,7 @@ function ConstellationMap({
             );
           })}
         </svg>
-        {DEPARTMENTS.map((department, departmentIndex) => {
+        {departments.map((department, departmentIndex) => {
           const isSelected = department.id === selected.id;
           const isOrbiting = department.id === orbitingId;
           const focusDistance = Math.hypot(department.x - selected.x, department.y - selected.y);
@@ -362,11 +445,10 @@ function ConstellationMap({
             ? FOCUSED_SATELLITE_OFFSETS
             : SATELLITE_OFFSETS;
           const orbitDetails = [
-            { label: department.people[0].name, meta: department.people[0].role, size: 16 },
-            { label: department.people[1].name, meta: department.people[1].role, size: 16 },
-            { label: department.subteams[0], meta: 'Sub-team', size: 21 },
-            { label: department.subteams[1], meta: 'Sub-team', size: 21 },
-          ];
+            ...department.people.slice(0, 2).map((person) => ({ label: person.name, meta: person.role, size: 16 })),
+            ...department.subteams.slice(0, 2).map((label) => ({ label, meta: 'Connected team', size: 21 })),
+            ...department.work.slice(0, 4).map((work) => ({ label: work.title, meta: 'Work item', size: 18 })),
+          ].slice(0, 4);
           return (
             <div key={department.id}>
               <button
@@ -397,11 +479,11 @@ function ConstellationMap({
               >
                 <span className={styles.planetVisual}>
                   <span className={styles.planetHalo} />
-                  <Image className={styles.planetImage} src={department.image} alt="" fill sizes="(max-width: 900px) 130px, 224px" priority={department.id === 'engineering'} />
+                  <Image className={styles.planetImage} src={department.image} alt="" fill sizes="(max-width: 900px) 130px, 224px" priority={departmentIndex === 0} />
                 </span>
                 <span className={styles.planetCaption}><strong>{department.name}</strong><small>{department.code}</small></span>
               </button>
-              {(isOrbiting || isSelected) && departmentSatelliteOffsets.map((offset, index) => {
+              {(isOrbiting || isSelected) && departmentSatelliteOffsets.slice(0, orbitDetails.length).map((offset, index) => {
                 const detail = orbitDetails[index];
                 const satelliteX = department.x + offset.x;
                 const satelliteY = department.y + offset.y;
@@ -466,7 +548,9 @@ function Dashboard({
   onToggle: () => void;
 }) {
   const activeWork = department.work.filter((item) => item.state === 'Active').length;
-  const averageProgress = Math.round(department.work.reduce((sum, item) => sum + item.progress, 0) / department.work.length);
+  const averageProgress = department.work.length
+    ? Math.round(department.work.reduce((sum, item) => sum + item.progress, 0) / department.work.length)
+    : 0;
   const [presetByTask, setPresetByTask] = useState<Record<string, ReminderPreset>>({});
   const [customTimeByTask, setCustomTimeByTask] = useState<Record<string, string>>({});
   const [actionByTask, setActionByTask] = useState<Record<string, ActionStatus>>({});
@@ -679,6 +763,8 @@ function Dashboard({
                 </div>
                 <div className={styles.workMeta}><span>{work.owner}</span><span>{work.due}</span><span>{work.progress}%</span></div>
                 <div className={styles.progressTrack}><i style={{ width: `${work.progress}%` }} /></div>
+                {/* Push and reminder routes only accept live states, so finished work shows no controls. */}
+                {work.state !== 'Done' && (
                 <div className={styles.taskControls}>
                   <button
                     type="button"
@@ -719,7 +805,8 @@ function Dashboard({
                     {actionByTask[taskKey(index)]?.busy === 'remind' ? 'QUEUING…' : 'REMIND'}
                   </button>
                 </div>
-                {(presetByTask[taskKey(index)] ?? '15') === 'custom' && (
+                )}
+                {work.state !== 'Done' && (presetByTask[taskKey(index)] ?? '15') === 'custom' && (
                   <label className={styles.customTimeTag}>
                     <span>CUSTOM TIME</span>
                     <input
@@ -763,13 +850,34 @@ function Dashboard({
 }
 
 export function ConstellationDashboard() {
-  const [selectedId, setSelectedId] = useState('engineering');
+  const [graph, setGraph] = useState<Graph>({ nodes: [], edges: [] });
+  const [backendAvailable, setBackendAvailable] = useState(false);
+  const { departments, links } = useMemo(() => deriveDepartments(graph), [graph]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [isMapFocused, setIsMapFocused] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const selected = DEPARTMENTS.find((item) => item.id === selectedId) ?? DEPARTMENTS[0];
+  const selected = departments.find((item) => item.id === selectedId) ?? departments[0];
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const next = await fetchGraph();
+        if (!cancelled) {
+          setGraph(next);
+          setBackendAvailable(true);
+        }
+      } catch {
+        if (!cancelled) setBackendAvailable(false);
+      }
+    };
+    void load();
+    const timer = window.setInterval(load, 4_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, []);
 
   const startHover = (departmentId: string) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -795,11 +903,27 @@ export function ConstellationDashboard() {
     };
   }, []);
 
+  if (!selected) {
+    return (
+      <main className={styles.atlas}>
+        <AtlasHeader teams={0} bodies={0} live={backendAvailable} />
+        <section className={styles.emptyAtlas}>
+          <p>NO ORGANISATION GRAPH YET</p>
+          <h1>Your documents<br /><em>become the map.</em></h1>
+          <span>Upload a company corpus, deck, meeting folder or project dataset. Athena will identify the real departments, people, work and dependencies before drawing anything.</span>
+          <Link href="/import">Scan a document set →</Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={styles.atlas}>
-      <AtlasHeader />
+      <AtlasHeader teams={departments.length} bodies={graph.nodes.length} live={backendAvailable} />
       <div className={`${styles.workspace} ${isSidebarCollapsed ? styles.workspaceCollapsed : ''}`}>
         <ConstellationMap
+          departments={departments}
+          links={links}
           selected={selected}
           hoveredId={hoveredId}
           isFocused={isMapFocused}

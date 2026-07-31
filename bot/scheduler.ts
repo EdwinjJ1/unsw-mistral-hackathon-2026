@@ -6,6 +6,7 @@ import { Routes, type Client } from 'discord.js';
 import { formatDiscordTask } from '../lib/task-actions';
 import type { GraphApi } from './api';
 import type { BotConfig } from './config';
+import { createDiscordRecipientDirectory, dispatchPlanHandoffs } from './dispatch';
 import { sendCheckIn } from './flows';
 
 export function startScheduler(client: Client, api: GraphApi, config: BotConfig): () => void {
@@ -84,4 +85,37 @@ export function startScheduler(client: Client, api: GraphApi, config: BotConfig)
   return () => {
     for (const timer of timers) clearInterval(timer);
   };
+}
+
+/** Poll the handoff endpoint so each newly generated AI plan reaches Discord. */
+export function startPlanDispatcher(client: Client, api: GraphApi, config: BotConfig): () => void {
+  if (config.planDispatchIntervalMs <= 0) {
+    console.log('[plan] automatic dispatch disabled (set PLAN_DISPATCH_INTERVAL_MS > 0 to enable)');
+    return () => {};
+  }
+
+  const directory = createDiscordRecipientDirectory(client, config.guildId);
+  let inFlight = false;
+  const run = async () => {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      const result = await dispatchPlanHandoffs(directory, api, {
+        retryPreviousFailures: false,
+      });
+      if (result.sent || result.unmatched || result.failed) {
+        console.log('[plan] dispatch complete', result);
+      }
+    } catch (error) {
+      console.error('[plan] dispatch poll failed:', error instanceof Error ? error.message : error);
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  console.log(`[plan] polling AI handoffs every ${config.planDispatchIntervalMs}ms`);
+  void run();
+  const timer = setInterval(() => void run(), config.planDispatchIntervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
 }

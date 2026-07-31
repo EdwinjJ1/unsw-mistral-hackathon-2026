@@ -20,6 +20,7 @@ env/
 dist/
 build/
 .next/
+.next-prod/
 out/
 *.egg-info/
 

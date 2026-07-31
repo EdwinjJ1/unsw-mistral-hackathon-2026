@@ -1,0 +1,152 @@
+.status-pill {
+  height: 22px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font: 400 11px/16px 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.freshness-live {
+  color: var(--pulse);
+}
+
+.freshness-stale {
+  color: var(--at-risk);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.fresh-dot {
+  width: 4px;
+  height: 4px;
+  border: 1px solid var(--at-risk);
+  border-radius: 50%;
+}
+
+.fresh-dot.filled {
+  background: var(--pulse);
+  border-color: var(--pulse);
+}
+
+.source-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.source-badge {
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 5px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  cursor: pointer;
+  font: 600 10px/12px 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+}
+
+.source-badge:hover,
+.source-badge[aria-expanded='true'] {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.source-badge.static {
+  cursor: default;
+  pointer-events: none;
+}
+
+.unsourced {
+  color: var(--text-faint);
+  font: 400 10px/16px 'JetBrains Mono', monospace;
+}
+
+.source-popover {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 8px);
+  width: min(320px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  animation: popover-in 120ms ease-out;
+}
+
+.source-popover.align-right {
+  right: 0;
+}
+
+.source-popover.align-left {
+  left: 0;
+}
+
+.source-popover-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-ref {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font: 400 11px/16px 'JetBrains Mono', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-quote {
+  display: block;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.source-via {
+  color: var(--text-dim);
+  font: 400 10px/16px 'JetBrains Mono', monospace;
+}
+
+.avatar {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  flex: 0 0 20px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font: 600 9px/1 'Inter', sans-serif;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}

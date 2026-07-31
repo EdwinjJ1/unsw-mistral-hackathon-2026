@@ -69,8 +69,23 @@ interface TeamDetail {
 | `GET /api/person/:discordUserId` | — | `Graph` (their subgraph) | D |
 | `POST /api/delta` | `Delta` | `{ ok, changed: string[] }` | D, E |
 | `POST /api/ingest` | `{ text: string }` | `Delta`, already applied | C |
+| `GET /api/plan` | — | latest `DeliveryPlan` | C, D |
+| `GET /api/plan/handoff` | — | owner-grouped `PlanHandoffManifest` | D |
+| `POST /api/people/discord` | `{ personId, discordUserId }` | `{ ok, personId, discordUserId }` | C, D |
+| `GET /api/plan/dispatch?planId=...` | — | saved dispatch receipts | D |
+| `POST /api/plan/dispatch` | `PlanDispatchReceipt` without trusted timestamp | saved receipt | D |
 
 `POST /api/delta` runs the contradiction check itself. Callers don't.
+
+### Discord handoff sequence
+
+1. Fetch `GET /api/plan/handoff`. Each item is already grouped by owner and includes the final DM `message`.
+2. Skip items whose `status` is `sent`; this makes polling and retries idempotent.
+3. If an owner has no `discordUserId`, resolve them against the guild roster and persist the exact match with `POST /api/people/discord`. Never fuzzy-match and auto-send.
+4. Send only items with a `discordUserId`, then post a `sent` or `failed` receipt to `POST /api/plan/dispatch` using the same `planId` and `ownerKey`.
+5. Ask `clarificationQuestions` in the project channel. Unowned work stays visible as a handoff with no Discord identity.
+
+The bot does not need to parse the graph or regenerate the plan. A dispatch item contains the owner, department, assignments, dates, dependencies, and ready-to-send message.
 
 ## Mistral — `lib/mistral/` (Track E)
 

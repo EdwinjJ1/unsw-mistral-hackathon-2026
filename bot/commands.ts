@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import type { GraphApi } from './api';
+import { createDiscordRecipientDirectory, dispatchPlanHandoffs } from './dispatch';
 import { sendCheckIn, sendHello } from './flows';
 
 export const commandData = [
@@ -20,10 +21,25 @@ export const commandData = [
     )
     .toJSON(),
   new SlashCommandBuilder()
+    .setName('athena-dispatch')
+    .setDescription('Fetch the latest AI plan and dispatch every pending owner handoff.')
+    .toJSON(),
+  new SlashCommandBuilder()
     .setName('athena-status')
     .setDescription('Trigger a check-in DM now instead of waiting for the scheduler.')
     .addUserOption((option) =>
       option.setName('user').setDescription('Who to check in with. Defaults to you.').setRequired(false),
+    )
+    .toJSON(),
+  new SlashCommandBuilder()
+    .setName('athena-ingest')
+    .setDescription('Extract graph changes from pasted project text and apply them.')
+    .addStringOption((option) =>
+      option
+        .setName('text')
+        .setDescription('Project text to extract into the graph.')
+        .setRequired(true)
+        .setMaxLength(4000),
     )
     .toJSON(),
 ];
@@ -43,6 +59,17 @@ export async function handleCommand(
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
+    if (interaction.commandName === 'athena-dispatch') {
+      if (!interaction.guildId) throw new Error('Run this command inside the configured server.');
+      const result = await dispatchPlanHandoffs(
+        createDiscordRecipientDirectory(interaction.client, interaction.guildId),
+        api,
+      );
+      await interaction.editReply(
+        `Plan ${result.planId}: ${result.sent} sent, ${result.unmatched} unmatched, ${result.failed} failed, ${result.skipped} already handled.`,
+      );
+      return;
+    }
     if (interaction.commandName === 'athena-hello') {
       await sendHello(target);
       await interaction.editReply(`Sent a hello DM to ${target.username}.`);
@@ -51,6 +78,18 @@ export async function handleCommand(
     if (interaction.commandName === 'athena-status') {
       await sendCheckIn(target, api);
       await interaction.editReply(`Sent a check-in DM to ${target.username}.`);
+      return;
+    }
+    if (interaction.commandName === 'athena-ingest') {
+      const text = interaction.options.getString('text', true);
+      const delta = await api.ingestText(text);
+      const nodeCount = delta.upsertNodes?.length ?? 0;
+      const edgeCount = delta.upsertEdges?.length ?? 0;
+      await interaction.editReply(
+        nodeCount === 0 && edgeCount === 0
+          ? 'No graph changes could be extracted from that text; nothing was added.'
+          : `Ingested the text and applied ${nodeCount} node${nodeCount === 1 ? '' : 's'} and ${edgeCount} edge${edgeCount === 1 ? '' : 's'} to the project graph.`,
+      );
       return;
     }
     await interaction.editReply(`Unknown command: ${interaction.commandName}`);
