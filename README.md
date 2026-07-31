@@ -108,31 +108,40 @@ One complete loop, live:
 
 ```
 .
-├── README.md    # What we're building and why — start here
-└── PLAN.md      # Scope, architecture, workstreams, timeline, risks — read before coding
+├── README.md      # What we're building and why — start here
+├── PLAN.md        # Scope, architecture, workstreams, timeline, risks
+└── CONTRACT.md    # Types + API shape. Read before writing code. Do not change alone.
 ```
 
 Code layout lands once Track A ships the graph core.
 
 ## Team
 
-Fill in your name and claim a track. See [`PLAN.md` §6](PLAN.md) for what each track owns.
+Six people, six tracks. Put your name in and claim one. Full scope per track in [`PLAN.md` §6](PLAN.md).
 
 | Name | Track | Owns |
 | --- | --- | --- |
-| _TBD_ | **A — Graph core** | SQLite schema, `Graph` types, read/write API, seed data |
-| _TBD_ | **B — Web brain** | Force-graph view, node expansion, detail panel |
-| _TBD_ | **C — Discord bot** | Bot setup, DM send/receive, check-in scheduler |
-| _TBD_ | **D — Mistral + pitch** | The six calls, prompts, schemas, deck, backup recording |
+| _TBD_ | **A — Graph core** | SQLite, types, all API routes, `applyDelta()` |
+| _TBD_ | **B — Neuron graph** | The force-directed brain view: sizing, colours, link particles |
+| _TBD_ | **C — Web shell** | Pages, routing, team detail panel, import page, styling |
+| _TBD_ | **D — Discord bot** | Bot setup, DM send/receive, check-in scheduler |
+| _TBD_ | **E — Mistral lib** | The five calls, prompts, JSON schemas, fallbacks |
+| _TBD_ | **F — Demo & pitch** | Seed data, demo script, deck, backup recording, integration fixing |
 
 **Everyone starts against fake data. Nobody waits for anybody.** Integrate at the halfway mark, not at the end.
 
+Only **A** is on the critical path — four tracks consume its API. A ships schema and routes first, clever query logic never.
+
 ## Getting started
 
-Not yet — the skeleton lands with Track A. Two things to do right now:
+Skeleton lands with Track A. Right now, in this order:
 
-1. Claim your track in the table above.
-2. Track C: **start the Discord bot setup immediately.** It is the most likely time sink of the whole build.
+1. **Everyone: read [`CONTRACT.md`](CONTRACT.md) and agree on it.** 20 minutes, whole team, before any code. Six people building against six different node shapes is the only realistic way this fails.
+2. Claim a track in the table above.
+3. **Track D: start the Discord bot registration immediately.** It is the most likely time sink of the entire build.
+4. Track F: write the seed dataset and hand it to A. Everyone builds against it.
+
+> 🔐 This repo is **public**. Never commit API keys, tokens, `.env` files, or real personal data. `.gitignore` covers the obvious cases — it is not a safety net you should test.
 
 > 🔐 This repo is **public**. Never commit API keys, tokens, `.env` files, or real personal data. `.gitignore` covers the obvious cases — it is not a safety net you should test.
 

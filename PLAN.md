@@ -82,7 +82,7 @@ Implement as: on every graph write, run a conflict check against related nodes. 
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Frontend | Next.js + React + `react-force-graph-2d` | Graph rendering out of the box; no time to hand-roll d3 |
+| Frontend | Next.js + React + `react-force-graph-2d` | See §4.3 — closest thing to Obsidian's look, out of the box |
 | Backend/API | Next.js API routes | One deploy, no separate server |
 | Bot | `discord.js` v14, same repo | Shares the graph types with the frontend |
 | Store | **SQLite** (`better-sqlite3`), nodes + edges tables | Zero setup, file-backed, survives restarts. Not Postgres — no time. |
@@ -113,6 +113,28 @@ This is an explicit hackathon requirement. Five small, purposeful calls:
 
 Confirm exact model IDs against Mistral's current docs before coding — do not trust this table blindly.
 
+### 4.3 Getting the Obsidian / neuron look
+
+Obsidian's own graph view is **d3-force** for the physics plus **PIXI.js** for rendering. Do not rebuild that from scratch.
+
+Use **[`react-force-graph-2d`](https://github.com/vasturiano/react-force-graph)** (vasturiano). Canvas-based, d3-force under the hood, React-native API, handles a few thousand nodes without effort. It is the shortest path from zero to something that looks like Obsidian.
+
+The single prop that sells the neuron aesthetic:
+
+```jsx
+linkDirectionalParticles={2}
+linkDirectionalParticleSpeed={0.006}
+linkDirectionalParticleWidth={2}
+```
+
+That animates dots travelling along each edge — reads exactly like **impulses firing along a synapse**. Without it you have a generic node graph; with it you have a brain. Turn particle count *up* on edges the bot just touched and the live update becomes visually obvious to judges at the back of the room.
+
+Other settings worth the two minutes: dark background, `nodeVal` bound to workload, `nodeCanvasObject` for a soft radial-gradient glow behind each node, `d3VelocityDecay` around `0.3` so it settles instead of jittering.
+
+**Alternatives, and why not:** `cytoscape.js` (structured/orthogonal layouts, wrong aesthetic) · `sigma.js` (WebGL, built for 100k+ nodes, more setup than you need) · raw `d3-force` (you'd write the render loop yourself) · `vis-network` (dated look).
+
+**Timebox this to two hours.** Force-graph physics tuning is the single most seductive rabbit hole in this build.
+
 ## 5. MVP — the only thing that must work
 
 **One complete loop, demoed live:**
@@ -128,18 +150,37 @@ If only this works, the project is submittable. Everything else is decoration.
 
 **Explicitly out of scope:** auth/login, multi-project support, real Jira/Atlassian sync, mobile, websockets, deployment to a real domain, tests beyond smoke tests.
 
-## 6. Workstreams
+## 6. Workstreams — six people, six tracks
 
-Four parallel tracks. Owners: **fill in your name in the README team table now.**
+Everything below is built against [`CONTRACT.md`](CONTRACT.md). **Read it before you write a line.** Claim your track in the README team table now.
 
-| Track | Owns | First deliverable |
+| Track | Owns | First deliverable (aim: 90 min) |
 | --- | --- | --- |
-| **A — Graph core** | SQLite schema, `Graph` types, read/write API, seed script | A working `getGraph()` + `applyDelta()` that others can call. **Ship this first — B and C are blocked on it.** |
-| **B — Web brain** | Force-graph view, team node expansion, detail panel, 3s polling | Static graph rendering from hardcoded JSON *before* A is ready |
-| **C — Discord bot** | Bot registration, DM send/receive, check-in scheduler | A bot that DMs "hello" and logs replies — get this working in the first hour, Discord setup always takes longer than expected |
-| **D — Mistral pipeline + pitch** | The 5 calls, prompts, JSON schemas, contradiction check, *and the pitch deck + backup recording* | Call #2 (extract delta) against a hardcoded reply string |
+| **A — Graph core** | SQLite schema, the types from CONTRACT §1 as real code, all five API routes, `applyDelta()` | `GET /api/graph` returning seeded JSON. **Ship this first — four people are waiting on it.** |
+| **B — Neuron graph** | The force-directed brain view: node sizing, health colours, link particles, click-to-select | The graph rendering from a hardcoded JSON file, looking like neurons |
+| **C — Web shell** | Pages and routing, team detail panel, import page, layout and styling | Detail panel rendering a hardcoded `TeamDetail` |
+| **D — Discord bot** | Bot registration, DM send/receive, check-in scheduler, wiring replies into `POST /api/delta` | **A bot that DMs "hello" and logs your reply. Do this in hour 0** |
+| **E — Mistral lib** | `lib/mistral/` — all five functions from CONTRACT §4, prompts, JSON schemas, fallbacks | `extractDelta()` turning a hardcoded reply string into a valid `Delta` |
+| **F — Demo & pitch** | Seed dataset, demo script, deck, backup recording, submission text — **and integration fixer** | The seed dataset, handed to A. Then float and unblock. |
 
-**Rule: A, B, C and D all start against fake data.** Nobody waits for anybody. Integrate at the halfway mark, not at the end.
+**B and C are deliberately separate people.** The force-graph is a physics-tuning rabbit hole; the rest of the app is CRUD-shaped work. One person doing both means the app shell never gets finished.
+
+**F is not a spare person.** Someone must own the demo dataset (which everyone builds against), the pitch, and — critically — being the one who notices at hour 6 that D and A disagree about a field name. On a six-person team this role pays for itself.
+
+**Rule: everyone starts against fake data.** Nobody waits for anybody. Integrate at the halfway mark, not at the end.
+
+### Dependency order
+
+```
+A (graph core) ──┬──► B (graph view)      polls GET /api/graph
+                 ├──► C (web shell)       calls GET /api/team/:id
+                 ├──► D (bot)             calls POST /api/delta
+                 └──► E (mistral lib)     produces Delta objects
+
+F (seed data) ───► A     ... then F floats across everyone
+```
+
+Only **A** is on the critical path. If A slips, everything slips — so A does the schema and routes *first* and the fancy query logic never.
 
 ## 7. Demo data
 
