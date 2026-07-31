@@ -4,7 +4,7 @@
 
 Built for the **UNSW × Mistral AI × Atlassian Hackathon 2026**.
 
-> 📋 **New to the project? Read [`GUIDE.md`](GUIDE.md) first** — ten minutes, plain English, explains how the whole system works and what every module does. Then [`CONTRACT.md`](CONTRACT.md) before you write code.
+> 📋 **New to the project? Read [`GUIDE.md`](docs/GUIDE.md) first** — ten minutes, plain English, explains how the whole system works and what every module does. Then [`CONTRACT.md`](docs/CONTRACT.md) before you write code.
 
 ---
 
@@ -76,7 +76,7 @@ Both people were telling the truth as they understood it. Neither contradiction 
                                             Web app (Next.js + force-graph)  ◄── live updates
 ```
 
-TypeScript end to end so the frontend, bot, and API share one `Graph` type. Details and rationale in [`PLAN.md` §4](PLAN.md).
+TypeScript end to end so the frontend, bot, and API share one `Graph` type. Details and rationale in [`PLAN.md` §4](docs/PLAN.md).
 
 ### Mistral usage
 
@@ -108,17 +108,20 @@ One complete loop, live:
 
 ```
 .
-├── README.md      # What we're building and why — the pitch framing
-├── GUIDE.md       # How the system works and what every module does — read this first
-├── PLAN.md        # Scope, architecture decisions, timeline, risks
-└── CONTRACT.md    # Types + API shape. Read before writing code. Do not change alone.
+├── app/           # Next.js UI and API routes
+├── data/          # Seed graph data
+├── docs/
+│   ├── GUIDE.md       # System orientation — read this first
+│   ├── PLAN.md        # Scope, architecture, timeline, and risks
+│   └── CONTRACT.md    # Frozen types and API shape
+├── lib/           # Graph core, database, validation, and shared types
+├── scripts/       # Local development scripts
+└── README.md      # Project overview and setup
 ```
-
-Code layout lands once Track A ships the graph core.
 
 ## Team
 
-Six people, six tracks. Put your name in and claim one. Full scope per track in [`PLAN.md` §6](PLAN.md).
+Six people, six tracks. Put your name in and claim one. Full scope per track in [`PLAN.md` §6](docs/PLAN.md).
 
 | Name | Track | Owns |
 | --- | --- | --- |
@@ -127,7 +130,7 @@ Six people, six tracks. Put your name in and claim one. Full scope per track in 
 | _TBD_ | **C — Web shell** | Pages, routing, team detail panel, import page, styling |
 | _TBD_ | **D — Discord bot** | Bot setup, DM send/receive, check-in scheduler |
 | _TBD_ | **E — Mistral lib** | The five calls, prompts, JSON schemas, fallbacks |
-| _TBD_ | **F — Demo & pitch** | Seed data, demo script, deck, backup recording, integration fixing |
+| _TBD_ | **F — Signals** | Seed dataset, then the ranked list of what Athena noticed on its own |
 
 **Everyone starts against fake data. Nobody waits for anybody.** Integrate at the halfway mark, not at the end.
 
@@ -135,14 +138,32 @@ Only **A** is on the critical path — four tracks consume its API. A ships sche
 
 ## Getting started
 
-Skeleton lands with Track A. Right now, in this order:
+The Track A graph core can now be run locally:
 
-1. **Everyone: read [`CONTRACT.md`](CONTRACT.md) and agree on it.** 20 minutes, whole team, before any code. Six people building against six different node shapes is the only realistic way this fails.
+```bash
+npm install
+npm run seed
+npm run dev
+```
+
+The default SQLite database is `./athena.db`; override it with
+`DATABASE_PATH`. Useful engineering checks are available as `npm test`,
+`npm run typecheck`, and `npm run build`.
+
+The five frozen endpoints are:
+
+- `GET /api/graph`
+- `GET /api/team/:id`
+- `GET /api/person/:discordUserId`
+- `POST /api/delta`
+- `POST /api/ingest`
+
+For the rest of the team, continue in this order:
+
+1. **Everyone: read [`CONTRACT.md`](docs/CONTRACT.md) and agree on it.** 20 minutes, whole team, before any code. Six people building against six different node shapes is the only realistic way this fails.
 2. Claim a track in the table above.
 3. **Track D: start the Discord bot registration immediately.** It is the most likely time sink of the entire build.
 4. Track F: write the seed dataset and hand it to A. Everyone builds against it.
-
-> 🔐 This repo is **public**. Never commit API keys, tokens, `.env` files, or real personal data. `.gitignore` covers the obvious cases — it is not a safety net you should test.
 
 > 🔐 This repo is **public**. Never commit API keys, tokens, `.env` files, or real personal data. `.gitignore` covers the obvious cases — it is not a safety net you should test.
 
@@ -152,7 +173,7 @@ Skeleton lands with Track A. Right now, in this order:
 
 **General:** Value & human insight · Creativity & design · Feasibility & scalability · Technical execution · Use of AI (support human thinking, don't replace it)
 
-Responsibility is scored explicitly, and a bot that DMs people and remembers what they say invites obvious questions. Our answers are in [`PLAN.md` §10](PLAN.md) — know them before the pitch.
+Responsibility is scored explicitly, and a bot that DMs people and remembers what they say invites obvious questions. Our answers are in [`PLAN.md` §10](docs/PLAN.md) — know them before the pitch.
 
 ## Schedule
 

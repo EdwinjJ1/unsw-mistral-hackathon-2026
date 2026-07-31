@@ -1,0 +1,41 @@
+{
+  "_readme": "Ready-to-fire payloads for POST /api/ingest ({ text: string }). Fire in the numbered order for the demo arc: each one adds pressure until the contradictions surface. curl example: curl -s -X POST localhost:3000/api/ingest -H 'content-type: application/json' -d @<(jq '{text: .payloads[0].text}' ingest-payloads.json)",
+  "payloads": [
+    {
+      "order": 1,
+      "source": "standup notes (today)",
+      "expect": "Task updates; Sam's 'AUTH-42 shipped' claim enters the graph; Aisha's dispute noted",
+      "text": "Standup notes, Relay 2.0 launch group. Engineering (Sam): export pipeline checkpoint-retry landed, load test green at 2x projected launch traffic. AUTH-42 migration shipped — worker pool is on the new service-token scheme as of last night's deploy, closing the ticket today. Product (Priya): launch checklist 80% green. Legal sign-off still pending. The launch-day comms plan still has no owner since Jordan left — third week running. Design (Dana): trash and restore UI in staging; the empty-state copy references the 30-day recovery window per the PRD, shout if that number is moving because it is baked into three screens. Ops (Aisha): rollback runbook still in DRAFT. Hearing conflicting info on whether AUTH-42 is actually complete — Sam says shipped, but the platform dashboard showed 4 of 10 worker nodes migrated yesterday evening. Will reconcile. Legal (Marcus, async): sign-off remains conditional, see memo section 4."
+    },
+    {
+      "order": 2,
+      "source": "legal memo (yesterday)",
+      "expect": "HERO TRIGGER: 14-day Enterprise retention cap enters graph — should conflict with the 30-day window already present from standup/PRD",
+      "text": "Legal memo from Marcus Webb, data handling review for the Relay 2.0 launch. Export bundle handling is acceptable as designed. Requirement on deleted-item retention: under the Enterprise processor addendum, deleted customer payloads may be retained in recoverable form for a maximum of 14 days after deletion. User-facing recoverability beyond 14 days is a contractual breach for Enterprise workspaces. I understand Product has been exploring a longer recovery window; to be explicit, 14 days is the ceiling for Enterprise. A longer window for other tiers would require tier-differentiated purge logic, which was descoped from this launch. Legal sign-off is conditional on the retention cap being enforced and on EU export region confirmation. Until then treat legal sign-off as pending regardless of what the launch checklist shows."
+    },
+    {
+      "order": 3,
+      "source": "ops runbook draft (this morning)",
+      "expect": "SECOND CONFLICT: runbook 'blocked pending auth migration' vs Sam's 'shipped' from payload 1; also DEPENDS_ON edges to legal decision",
+      "text": "Ops runbook draft for Relay 2.0 export rollback, owner Aisha Torres, status DRAFT. Kill switch and drain procedures written. Two blockers before this runbook can be finalized. One: the AUTH-42 migration is still in progress on the worker pool — as of this morning 4 of 10 worker nodes are migrated, export jobs route only to migrated nodes, and the capacity table assumes the full pool. Status: blocked pending auth migration completion. Two: purge behaviour on rollback is undefined until the retention window question is settled between Product and Legal; the cleanup steps change completely depending on the final number. Waiting on that decision."
+    },
+    {
+      "order": 4,
+      "source": "voice memo transcript, Priya (end of day)",
+      "expect": "Escalation: unowned comms plan (3rd week); retention conflict spreading into help article + trash UI — compounding-cost signal",
+      "text": "Voice memo from Priya, end of day. Mostly a good day, copy is approved and the load test is green. Two things keeping me up. The comms plan still has no owner, third week, and if nobody takes it by tomorrow I take it myself, which given I am also launch commander is a terrible idea. Second, the help-center article draft went out for review today and it quotes the thirty-day restore window in four places, and Dana's screens say thirty too. So if legal's fourteen-day requirement is real, it is not one fix — it is the trash UI, the help article, the empty states, it compounds every day we do not decide."
+    },
+    {
+      "order": 5,
+      "source": "DM reply, Sam (via bot absorb path if available, else ingest)",
+      "expect": "Direct restatement of eng position — should attach to the existing auth conflict, not create a duplicate",
+      "text": "Reply from Sam Okafor to check-in: AUTH-42 is done, shipped to the full pool last night, deploy log is the source of truth and the dashboard lags. The rollback runbook should be unblocked from my side."
+    },
+    {
+      "order": 6,
+      "source": "noise control — must produce an empty or near-empty delta",
+      "expect": "NOTHING. If this creates nodes, extraction is over-firing",
+      "text": "haha yeah no worries, thanks! anyone keen for the dumpling place at 12:30, also happy birthday dana 🎂"
+    }
+  ]
+}

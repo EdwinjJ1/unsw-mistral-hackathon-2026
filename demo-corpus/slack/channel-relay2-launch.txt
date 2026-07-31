@@ -1,0 +1,43 @@
+# Slack export — #relay2-launch (last 48h, trimmed)
+
+[yesterday 09:12] priya: morning all, launch checklist review at 2pm, invite going out
+[yesterday 09:12] dana: 👍
+[yesterday 09:14] sam: can we keep it to 30 min, deep in AUTH-42 today
+[yesterday 09:15] priya: yep, timeboxed
+
+[yesterday 10:41] dana: pushed the trash empty-state to staging, copy reads "Items stay here for 30 days" — matches PRD 5.1. screenshots in thread
+[yesterday 10:44] priya: love it. that 30-day number tested so well in interviews
+[yesterday 10:52] marcus: 👀 please read my memo before that copy goes further
+
+[yesterday 11:30] aisha: anyone for the dumpling place at 12:30
+[yesterday 11:31] dana: in
+[yesterday 11:31] sam: can't, migration
+[yesterday 11:33] aisha: rip
+
+[yesterday 14:20] priya: checklist review notes: 80% green. comms plan STILL has no owner since jordan left, third week running. someone please
+[yesterday 14:22] dana: not it 😅
+[yesterday 14:25] aisha: I can't take it during launch week on-call
+
+[yesterday 16:05] aisha: platform dashboard shows 4/10 worker nodes on the new token scheme. sam is that current? runbook capacity table assumes full pool
+[yesterday 16:40] sam: dashboard lags the deploy pipeline, don't trust it. rest of the pool goes tonight
+[yesterday 16:41] aisha: ok, keeping runbook in DRAFT till I see 10/10 somewhere I trust
+
+[yesterday 18:02] marcus: reminder that legal sign-off is conditional. two open items in memo §4. I keep seeing "legal ✅ expected today" on the checklist and that is... optimistic
+[yesterday 18:15] priya: noted, will fix the checklist wording
+
+[today 08:55] sam: AUTH-42 deployed to the full pool last night, closing the ticket 🎉
+[today 08:57] dana: 🎉🎉
+[today 09:41] aisha: congrats — dashboard still says 6/10 this morning btw. reconciling after standup
+[today 09:44] sam: it's a metrics lag, I'm telling you. deploy log is truth
+[today 09:45] aisha: one of these two sources is wrong and my capacity table depends on which
+
+[today 10:58] priya: marketing wants final copy today. current line: "your data, out in minutes." everyone ok?
+[today 11:02] sam: accurate, ship it
+[today 11:03] dana: 👍
+[today 11:08] marcus: fine. better than "instant"
+
+[today 11:45] dana: lunch? not dumplings again please
+[today 11:46] aisha: dumplings.
+[today 11:46] dana: 😩
+
+[today 12:30] priya: @channel reminder: freeze on new launch-blocking items after tomorrow. if you know about a risk, it goes on the list TODAY

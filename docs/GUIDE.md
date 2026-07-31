@@ -110,15 +110,17 @@ Two rules matter more than prompt cleverness. **Always pass the existing node id
 
 Prompts should frame the scope and pass a schema, and then stop. Two or three sentences. If a prompt is getting longer than the function that calls it, it should have been two calls.
 
-### Demo and pitch
+### Signals
 
-Not the spare seat. This module owns three things that decide whether the other five matter.
+The graph view and the team panel both show you *state*. Neither one points at a *problem*. This module is the part of Athena that notices things on its own — and it's what the Hidden Signals award is asking for.
 
-**The seed dataset.** A believable fictional project that everyone develops against. It has to deliberately contain a cross-team dependency (so the bot has something real to say about who to talk to), a contradiction between two teams (so the hidden-signal feature has something to find), and an unowned task (so the bot can spot a gap). This blocks four people, so it comes first. A good demo dataset is worth more than an extra feature.
+Its job is to look over the whole graph and surface what's wrong or suspicious, ranked: two teams contradicting each other, a task nobody owns, a fact that hasn't been touched in two days, a deadline that passed while the status never moved, a task waiting on something that's itself blocked, a person who owns work but has gone quiet.
 
-**The pitch and the recording.** The narrative, the deck, the rehearsals, and a recorded backup demo. Judges can only score what they see working, and live demos fail — venue wifi, rate limits, a service having a bad afternoon. The recording is insurance.
+The interesting thing about this list is that only the first item needs AI. The rest are plain queries over the graph — no owner edge, old timestamp, dependency pointing at a blocked node. That's what makes them findable, and it's also why this module can start on hour zero without waiting for anybody.
 
-**Integration.** Someone has to be the person who notices at hour six that the bot and the API disagree about a field name. On a six-person team that role pays for itself several times over.
+It also owns the **seed dataset**, and that's not a coincidence. Building a believable project by hand — deliberately planting a contradiction, an unowned task, a stale fact — is the same job as writing the code that finds them, done twice in a row. Everyone else develops against this dataset, so it comes first.
+
+Why this matters beyond the award: it completes the story. The bot asks, the graph updates, and then Athena tells you something nobody reported. Nobody files a ticket saying "this task has no owner" or "this claim is two days old" — that's exactly the class of problem that stays invisible until it hurts.
 
 ---
 

@@ -1,36 +1,24 @@
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/600.css';
-import '@fontsource/space-grotesk/600.css';
-import '@fontsource/jetbrains-mono/400.css';
-import '@fontsource/jetbrains-mono/600.css';
-import './globals.css';
-import '@/components/ui/primitives.css';
-import '@/components/panel/panels.css';
-import '@/components/graph/graph.css';
-import './narrative.css';
-import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { GraphProvider } from '@/lib/useGraph';
-import { ShortcutLayer, TopBar } from '@/components/shell/Shell';
+import type { ReactNode } from 'react';
+import '@fontsource/eb-garamond/400.css';
+import '@fontsource/eb-garamond/400-italic.css';
+import '@fontsource/eb-garamond/500.css';
+import '@fontsource/eb-garamond/500-italic.css';
+import '@fontsource/eb-garamond/600.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/600.css';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Athena — second brain for a project',
-  description: 'A living project graph that finds hidden signals across teams.',
+  title: 'Athena — Organisation Atlas',
+  description: 'A living constellation of departments, people and work.',
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>
-        <Suspense fallback={<div className="app-loading">ATHENA · CONNECTING GRAPH</div>}>
-          <GraphProvider>
-            <TopBar />
-            <ShortcutLayer />
-            {children}
-          </GraphProvider>
-        </Suspense>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

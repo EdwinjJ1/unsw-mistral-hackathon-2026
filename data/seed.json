@@ -1,0 +1,511 @@
+{
+  "nodes": [
+    {
+      "id": "team.product",
+      "type": "Team",
+      "label": "Product",
+      "status": "at_risk",
+      "summary": "Product is coordinating launch scope, but the launch brief has not been refreshed recently.",
+      "updatedAt": "2026-07-31T05:50:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/product",
+        "quote": "Product owns the launch plan and cross-team readiness."
+      }
+    },
+    {
+      "id": "team.engineering",
+      "type": "Team",
+      "label": "Engineering",
+      "status": "at_risk",
+      "summary": "Engineering reports authentication shipped and is preparing the production rollout.",
+      "updatedAt": "2026-07-31T05:50:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/engineering",
+        "quote": "Engineering owns authentication, deployment, and rollback readiness."
+      }
+    },
+    {
+      "id": "team.design",
+      "type": "Team",
+      "label": "Design",
+      "status": "in_progress",
+      "summary": "Design is finishing launch communication and empty-state content.",
+      "updatedAt": "2026-07-31T05:50:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/design",
+        "quote": "Design owns launch presentation and product messaging."
+      }
+    },
+    {
+      "id": "team.legal-ops",
+      "type": "Team",
+      "label": "Legal/Ops",
+      "status": "blocked",
+      "summary": "Legal/Ops is waiting on authentication handover and has not cleared the security review.",
+      "updatedAt": "2026-07-31T05:50:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/legal-ops",
+        "quote": "Legal/Ops owns retention policy, security review, and operational launch approval."
+      }
+    },
+    {
+      "id": "person.priya-shah",
+      "type": "Person",
+      "label": "Priya Shah",
+      "teamId": "team.product",
+      "status": "in_progress",
+      "summary": "Product lead for the launch.",
+      "discordUserId": "100000000000000001",
+      "updatedAt": "2026-07-29T03:30:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/priya-shah",
+        "quote": "Priya owns the product launch brief."
+      }
+    },
+    {
+      "id": "person.alex-ng",
+      "type": "Person",
+      "label": "Alex Ng",
+      "teamId": "team.engineering",
+      "status": "in_progress",
+      "summary": "Engineering lead for authentication and release readiness.",
+      "discordUserId": "100000000000000002",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/alex-ng",
+        "quote": "Alex owns authentication, deployment, and rollback work."
+      }
+    },
+    {
+      "id": "person.sofia-rossi",
+      "type": "Person",
+      "label": "Sofia Rossi",
+      "teamId": "team.design",
+      "status": "at_risk",
+      "summary": "Designer responsible for launch communication.",
+      "discordUserId": "100000000000000003",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/sofia-rossi",
+        "quote": "Sofia owns the release announcement."
+      }
+    },
+    {
+      "id": "person.jordan-kim",
+      "type": "Person",
+      "label": "Jordan Kim",
+      "teamId": "team.legal-ops",
+      "status": "blocked",
+      "summary": "Legal/Ops owner for policy and operational approval.",
+      "discordUserId": "100000000000000004",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/jordan-kim",
+        "quote": "Jordan owns retention policy, security review, and operational verification."
+      }
+    },
+    {
+      "id": "person.morgan-lee",
+      "type": "Person",
+      "label": "Morgan Lee",
+      "teamId": "team.product",
+      "status": "not_started",
+      "summary": "Product writer preparing launch support content.",
+      "discordUserId": "100000000000000005",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/people/morgan-lee",
+        "quote": "Morgan owns launch support content."
+      }
+    },
+    {
+      "id": "task.launch-brief",
+      "type": "Task",
+      "label": "Refresh launch brief",
+      "teamId": "team.product",
+      "status": "in_progress",
+      "summary": "Refresh the shared launch brief with current scope, owners, and risks.",
+      "ownerId": "person.priya-shah",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-29T03:45:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "launch-brief-v3",
+        "quote": "Launch brief last reviewed on Wednesday; owner to publish the next revision."
+      }
+    },
+    {
+      "id": "task.rollback-runbook",
+      "type": "Task",
+      "label": "Write rollback runbook",
+      "teamId": "team.engineering",
+      "status": "in_progress",
+      "summary": "Document rollback steps after Legal/Ops confirms the retention window.",
+      "ownerId": "person.alex-ng",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T05:05:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-rollback-101",
+        "quote": "I can finish the rollback runbook once Legal confirms whether retention is 14 or 30 days."
+      }
+    },
+    {
+      "id": "task.auth-rollout",
+      "type": "Task",
+      "label": "Ship authentication rollout",
+      "teamId": "team.engineering",
+      "status": "done",
+      "summary": "Engineering considers authentication complete and deployed.",
+      "ownerId": "person.alex-ng",
+      "dueDate": "2026-07-31",
+      "updatedAt": "2026-07-31T05:35:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-engineering-201",
+        "quote": "Authentication is complete and shipped to production on Thursday."
+      }
+    },
+    {
+      "id": "task.production-deploy",
+      "type": "Task",
+      "label": "Approve production deployment",
+      "teamId": "team.engineering",
+      "status": "not_started",
+      "summary": "Production deployment cannot begin until the security review is cleared.",
+      "ownerId": "person.alex-ng",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T05:10:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "release-checklist/production-deploy",
+        "quote": "Deployment approval depends on a completed security review."
+      }
+    },
+    {
+      "id": "task.empty-state-copy",
+      "type": "Task",
+      "label": "Finalise empty-state copy",
+      "teamId": "team.design",
+      "status": "in_progress",
+      "summary": "Finalise the first-run empty-state copy before the launch build is captured.",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T05:15:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "design-handoff/empty-state",
+        "quote": "Empty-state copy is open, but no owner is listed."
+      }
+    },
+    {
+      "id": "task.release-announcement",
+      "type": "Task",
+      "label": "Publish release announcement",
+      "teamId": "team.design",
+      "status": "in_progress",
+      "summary": "Prepare and publish the launch announcement.",
+      "ownerId": "person.sofia-rossi",
+      "dueDate": "2026-07-30",
+      "updatedAt": "2026-07-29T02:00:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "launch-comms/release-announcement",
+        "quote": "Release announcement was due yesterday and remains in progress."
+      }
+    },
+    {
+      "id": "task.retention-window",
+      "type": "Task",
+      "label": "Confirm retention window",
+      "teamId": "team.legal-ops",
+      "status": "in_progress",
+      "summary": "Confirm whether rollback data must be retained for 14 or 30 days.",
+      "ownerId": "person.jordan-kim",
+      "dueDate": "2026-07-31",
+      "updatedAt": "2026-07-31T05:25:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-legal-301",
+        "quote": "I am confirming whether the launch needs a 14-day or 30-day retention window."
+      }
+    },
+    {
+      "id": "task.security-review",
+      "type": "Task",
+      "label": "Complete security review",
+      "teamId": "team.legal-ops",
+      "status": "blocked",
+      "summary": "Security review is blocked while the team waits for the final threat model.",
+      "ownerId": "person.jordan-kim",
+      "dueDate": "2026-07-31",
+      "updatedAt": "2026-07-31T05:20:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "security-review/checklist",
+        "quote": "Security review cannot proceed until the threat model is delivered."
+      }
+    },
+    {
+      "id": "task.ops-auth-verification",
+      "type": "Task",
+      "label": "Verify authentication handover",
+      "teamId": "team.legal-ops",
+      "status": "blocked",
+      "summary": "Ops believes authentication has not been handed over and is blocking launch readiness.",
+      "ownerId": "person.jordan-kim",
+      "dueDate": "2026-07-31",
+      "updatedAt": "2026-07-31T05:40:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-ops-302",
+        "quote": "Launch is still blocked because authentication has not been handed over to Ops."
+      }
+    },
+    {
+      "id": "task.orphan-launch-faq",
+      "type": "Task",
+      "label": "Draft launch FAQ",
+      "status": "not_started",
+      "summary": "Draft a customer-facing launch FAQ; the task is not attached to any team.",
+      "ownerId": "person.morgan-lee",
+      "dueDate": "2026-08-01",
+      "updatedAt": "2026-07-31T05:30:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "launch-comms/faq",
+        "quote": "Morgan owns the FAQ, but the task has not been assigned to a team."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "person.priya-shah--MEMBER_OF--team.product",
+      "from": "person.priya-shah",
+      "to": "team.product",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/priya-product",
+        "quote": "Priya is the Product lead."
+      }
+    },
+    {
+      "id": "person.alex-ng--MEMBER_OF--team.engineering",
+      "from": "person.alex-ng",
+      "to": "team.engineering",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/alex-engineering",
+        "quote": "Alex is the Engineering lead."
+      }
+    },
+    {
+      "id": "person.sofia-rossi--MEMBER_OF--team.design",
+      "from": "person.sofia-rossi",
+      "to": "team.design",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/sofia-design",
+        "quote": "Sofia is the Design lead."
+      }
+    },
+    {
+      "id": "person.jordan-kim--MEMBER_OF--team.legal-ops",
+      "from": "person.jordan-kim",
+      "to": "team.legal-ops",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/jordan-legal-ops",
+        "quote": "Jordan is the Legal/Ops lead."
+      }
+    },
+    {
+      "id": "person.morgan-lee--MEMBER_OF--team.product",
+      "from": "person.morgan-lee",
+      "to": "team.product",
+      "type": "MEMBER_OF",
+      "updatedAt": "2026-07-31T05:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/membership/morgan-product",
+        "quote": "Morgan works with Product."
+      }
+    },
+    {
+      "id": "person.priya-shah--OWNS--task.launch-brief",
+      "from": "person.priya-shah",
+      "to": "task.launch-brief",
+      "type": "OWNS",
+      "updatedAt": "2026-07-29T03:45:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/priya-launch-brief",
+        "quote": "Priya owns the launch brief."
+      }
+    },
+    {
+      "id": "person.alex-ng--OWNS--task.rollback-runbook",
+      "from": "person.alex-ng",
+      "to": "task.rollback-runbook",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:05:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/alex-rollback",
+        "quote": "Alex owns the rollback runbook."
+      }
+    },
+    {
+      "id": "person.alex-ng--OWNS--task.auth-rollout",
+      "from": "person.alex-ng",
+      "to": "task.auth-rollout",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:35:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/alex-auth",
+        "quote": "Alex owns authentication rollout."
+      }
+    },
+    {
+      "id": "person.alex-ng--OWNS--task.production-deploy",
+      "from": "person.alex-ng",
+      "to": "task.production-deploy",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:10:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/alex-deploy",
+        "quote": "Alex owns production deployment approval."
+      }
+    },
+    {
+      "id": "person.sofia-rossi--OWNS--task.release-announcement",
+      "from": "person.sofia-rossi",
+      "to": "task.release-announcement",
+      "type": "OWNS",
+      "updatedAt": "2026-07-29T02:00:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/sofia-announcement",
+        "quote": "Sofia owns the release announcement."
+      }
+    },
+    {
+      "id": "person.jordan-kim--OWNS--task.retention-window",
+      "from": "person.jordan-kim",
+      "to": "task.retention-window",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:25:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/jordan-retention",
+        "quote": "Jordan owns the retention-window decision."
+      }
+    },
+    {
+      "id": "person.jordan-kim--OWNS--task.security-review",
+      "from": "person.jordan-kim",
+      "to": "task.security-review",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:20:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/jordan-security",
+        "quote": "Jordan owns the security review."
+      }
+    },
+    {
+      "id": "person.jordan-kim--OWNS--task.ops-auth-verification",
+      "from": "person.jordan-kim",
+      "to": "task.ops-auth-verification",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:40:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/jordan-auth-verification",
+        "quote": "Jordan owns operational authentication verification."
+      }
+    },
+    {
+      "id": "person.morgan-lee--OWNS--task.orphan-launch-faq",
+      "from": "person.morgan-lee",
+      "to": "task.orphan-launch-faq",
+      "type": "OWNS",
+      "updatedAt": "2026-07-31T05:30:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/ownership/morgan-faq",
+        "quote": "Morgan owns the launch FAQ."
+      }
+    },
+    {
+      "id": "task.rollback-runbook--DEPENDS_ON--task.retention-window",
+      "from": "task.rollback-runbook",
+      "to": "task.retention-window",
+      "type": "DEPENDS_ON",
+      "note": "Engineering needs Legal/Ops to confirm retention before the rollback runbook can be completed.",
+      "updatedAt": "2026-07-31T05:25:00.000Z",
+      "sourceRef": {
+        "kind": "discord_dm",
+        "ref": "discord-message-rollback-101",
+        "quote": "I can finish the rollback runbook once Legal confirms whether retention is 14 or 30 days."
+      }
+    },
+    {
+      "id": "task.production-deploy--DEPENDS_ON--task.security-review",
+      "from": "task.production-deploy",
+      "to": "task.security-review",
+      "type": "DEPENDS_ON",
+      "note": "Production deployment waits on the blocked security review.",
+      "updatedAt": "2026-07-31T05:20:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "release-checklist/production-deploy",
+        "quote": "Deployment approval depends on a completed security review."
+      }
+    },
+    {
+      "id": "task.security-review--BLOCKS--task.production-deploy",
+      "from": "task.security-review",
+      "to": "task.production-deploy",
+      "type": "BLOCKS",
+      "note": "The blocked security review prevents production deployment.",
+      "updatedAt": "2026-07-31T05:20:00.000Z",
+      "sourceRef": {
+        "kind": "document",
+        "ref": "security-review/checklist",
+        "quote": "Security review cannot proceed until the threat model is delivered."
+      }
+    },
+    {
+      "id": "task.auth-rollout--CONFLICTS_WITH--task.ops-auth-verification",
+      "from": "task.auth-rollout",
+      "to": "task.ops-auth-verification",
+      "type": "CONFLICTS_WITH",
+      "note": "Engineering says authentication shipped, while Ops says the handover never happened.",
+      "updatedAt": "2026-07-31T05:40:00.000Z",
+      "sourceRef": {
+        "kind": "seed",
+        "ref": "athena-launch/conflicts/auth-handover",
+        "quote": "Engineering and Ops hold incompatible views of authentication readiness."
+      }
+    }
+  ]
+}

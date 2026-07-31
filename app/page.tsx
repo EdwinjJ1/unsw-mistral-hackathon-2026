@@ -1,14 +1,5 @@
-'use client';
-
-import { Drawer } from '@/components/panel/Panels';
-import { Legend, NeuronGraph } from '@/components/graph/NeuronGraph';
+import { ConstellationDashboard } from '@/components/constellation/ConstellationDashboard';
 
 export default function Home() {
-  return (
-    <main className="home-stage">
-      <NeuronGraph />
-      <Legend />
-      <Drawer />
-    </main>
-  );
+  return <ConstellationDashboard />;
 }

@@ -161,23 +161,28 @@ Everything below is built against [`CONTRACT.md`](CONTRACT.md). **Read it before
 | **C — Web shell** | Pages and routing, team detail panel, import page, layout and styling | Detail panel rendering a hardcoded `TeamDetail` |
 | **D — Discord bot** | Bot registration, DM send/receive, check-in scheduler, wiring replies into `POST /api/delta` | **A bot that DMs "hello" and logs your reply. Do this in hour 0** |
 | **E — Mistral lib** | `lib/mistral/` — all five functions from CONTRACT §4, prompts, JSON schemas, fallbacks | `extractDelta()` turning a hardcoded reply string into a valid `Delta` |
-| **F — Demo & pitch** | Seed dataset, demo script, deck, backup recording, submission text — **and integration fixer** | The seed dataset, handed to A. Then float and unblock. |
+| **F — Signals** | Seed dataset, then signal detection + the ranked "what Athena noticed" page — **the Hidden Signals award surface** | The seed dataset, handed to A. Then the six rule-based signals. |
 
 **B and C are deliberately separate people.** The force-graph is a physics-tuning rabbit hole; the rest of the app is CRUD-shaped work. One person doing both means the app shell never gets finished.
 
-**F is not a spare person.** Someone must own the demo dataset (which everyone builds against), the pitch, and — critically — being the one who notices at hour 6 that D and A disagree about a field name. On a six-person team this role pays for itself.
+**F is a product track, not a spare seat.** Everything else in the app shows state; F is the only part that points at problems, which is precisely what the Hidden Signals award asks for. Six of its seven signals are plain graph queries with no AI in them, so **F is the only track that can run at full speed from hour 0** — it just needs the seed dataset it writes itself.
+
+**Pitch and deck are deferred** until the product is working. The one piece that isn't deferrable: **record a backup demo the first time the loop runs end to end.** It needs no deck and no script, and it insures against venue wifi, rate limits, and a service having a bad afternoon.
 
 **Rule: everyone starts against fake data.** Nobody waits for anybody. Integrate at the halfway mark, not at the end.
 
 ### Dependency order
 
 ```
+F (seed data) ───► A     first thing, blocks four people
+
 A (graph core) ──┬──► B (graph view)      polls GET /api/graph
                  ├──► C (web shell)       calls GET /api/team/:id
                  ├──► D (bot)             calls POST /api/delta
-                 └──► E (mistral lib)     produces Delta objects
+                 ├──► E (mistral lib)     produces Delta objects
+                 └──► F (signals)         reads GET /api/graph, computes client-side
 
-F (seed data) ───► A     ... then F floats across everyone
+E ───► F   only for contradictions. F's other six signals need nobody.
 ```
 
 Only **A** is on the critical path. If A slips, everything slips — so A does the schema and routes *first* and the fancy query logic never.
