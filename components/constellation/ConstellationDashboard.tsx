@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from './constellation.module.css';
 
 type Health = 'On track' | 'Watch' | 'At risk';
@@ -233,6 +233,9 @@ const NETWORK_LINKS = [
 const SATELLITE_OFFSETS = [
   { x: -8, y: -10 }, { x: 9, y: -8 }, { x: -10, y: 10 }, { x: 10, y: 10 },
 ];
+const FOCUSED_SATELLITE_OFFSETS = [
+  { x: -17, y: -16 }, { x: 17, y: -14 }, { x: -18, y: 16 }, { x: 18, y: 15 },
+];
 const HEALTH_CLASS: Record<Health, string> = {
   'On track': styles.healthGood, Watch: styles.healthWatch, 'At risk': styles.healthRisk,
 };
@@ -259,12 +262,12 @@ function AtlasHeader() {
   );
 }
 
-function MapLegend() {
+function MapLegend({ isFocused }: { isFocused: boolean }) {
   return (
     <div className={styles.legend}>
-      <span className={styles.legendPlanet} /><span>Department</span>
-      <span className={styles.legendMoon} /><span>Hover for orbit</span>
-      <span className={styles.legendLine} /><span>Collaboration</span>
+      <span className={styles.legendPlanet} /><span>{isFocused ? 'Department core' : 'Department'}</span>
+      <span className={styles.legendMoon} /><span>{isFocused ? 'People / sub-team' : 'Hover for orbit'}</span>
+      <span className={styles.legendLine} /><span>{isFocused ? 'Focused orbit' : 'Collaboration'}</span>
     </div>
   );
 }
@@ -282,21 +285,32 @@ function ConstellationMap({
   onReset: () => void;
 }) {
   const byId = useMemo(() => new Map(DEPARTMENTS.map((item) => [item.id, item])), []);
-  const highlightedId = hoveredId ?? selected.id;
+  const orbitingId = isFocused ? selected.id : hoveredId;
+  const highlightedId = isFocused ? selected.id : hoveredId ?? selected.id;
+  const satelliteOffsets = isFocused ? FOCUSED_SATELLITE_OFFSETS : SATELLITE_OFFSETS;
+  const focusPlanetScale = Math.min(2.25, Math.max(1.18, 210 / selected.size));
   return (
     <section className={`${styles.mapPanel} ${isFocused ? styles.mapPanelFocused : ''}`} aria-label="Interactive organisation constellation">
       <div className={styles.mapIntro}>
-        <p>01 / LIVING ORGANISATION</p>
-        <h1>One company,<br /><em>in orbit.</em></h1>
-        <span>Hover to reveal · Select to magnify</span>
+        <p>{isFocused ? `${selected.code} / FOCUSED SUB-SYSTEM` : '01 / LIVING ORGANISATION'}</p>
+        <h1>{isFocused ? selected.name : 'One company'},<br /><em>in orbit.</em></h1>
+        <span>{isFocused ? '04 satellites · Esc to return' : 'Hover to reveal · Select to magnify'}</span>
       </div>
       {isFocused && (
         <button type="button" className={styles.resetView} onClick={onReset}>
-          <span>×</span> CLEAR FOCUS
+          <span>←</span> ALL DEPARTMENTS
         </button>
       )}
-      <div className={`${styles.chart} ${isFocused ? styles.chartFocused : ''}`}>
-        <svg className={styles.network} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <div
+        className={`${styles.chart} ${isFocused ? styles.chartFocused : ''}`}
+        style={{
+          '--focus-x': `${52 - selected.x}%`,
+          '--focus-y': `${54 - selected.y}%`,
+          '--focus-origin-x': `${selected.x}%`,
+          '--focus-origin-y': `${selected.y}%`,
+        } as CSSProperties}
+      >
+        <svg className={`${styles.network} ${isFocused ? styles.networkFocused : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {NETWORK_LINKS.map(([fromId, toId], index) => {
             const from = byId.get(fromId);
             const to = byId.get(toId);
@@ -310,12 +324,30 @@ function ConstellationMap({
               />
             );
           })}
-          {hoveredId && SATELLITE_OFFSETS.map((offset, index) => {
-            const department = byId.get(hoveredId);
+          {isFocused && (
+            <>
+              <ellipse
+                cx={selected.x}
+                cy={selected.y}
+                rx="18"
+                ry="16"
+                className={styles.systemOrbit}
+              />
+              <ellipse
+                cx={selected.x}
+                cy={selected.y}
+                rx="13"
+                ry="11.5"
+                className={styles.systemOrbitInner}
+              />
+            </>
+          )}
+          {orbitingId && satelliteOffsets.map((offset, index) => {
+            const department = byId.get(orbitingId);
             if (!department) return null;
             return (
               <path
-                key={`${hoveredId}-orbit-${index}`}
+                key={`${orbitingId}-${isFocused ? 'focus' : 'preview'}-orbit-${index}`}
                 d={`M ${department.x} ${department.y} Q ${department.x + offset.x * 0.52 + (index % 2 ? 1.4 : -1.4)} ${department.y + offset.y * 0.38} ${department.x + offset.x} ${department.y + offset.y}`}
                 className={styles.orbitLine}
               />
@@ -324,7 +356,11 @@ function ConstellationMap({
         </svg>
         {DEPARTMENTS.map((department, departmentIndex) => {
           const isSelected = department.id === selected.id;
-          const isOrbiting = department.id === hoveredId;
+          const isOrbiting = department.id === orbitingId;
+          const focusDistance = Math.hypot(department.x - selected.x, department.y - selected.y);
+          const departmentSatelliteOffsets = isSelected && isFocused
+            ? FOCUSED_SATELLITE_OFFSETS
+            : SATELLITE_OFFSETS;
           const orbitDetails = [
             { label: department.people[0].name, meta: department.people[0].role, size: 16 },
             { label: department.people[1].name, meta: department.people[1].role, size: 16 },
@@ -339,19 +375,24 @@ function ConstellationMap({
                   styles.planetButton,
                   isSelected ? styles.planetSelected : '',
                   isSelected && isFocused ? styles.planetInFocus : '',
+                  isFocused && !isSelected ? styles.planetOutOfFocus : '',
                   hoveredId && !isOrbiting ? styles.planetMuted : '',
                 ].join(' ')}
                 style={{
                   left: `${department.x}%`, top: `${department.y}%`,
                   width: department.size, height: department.size, zIndex: isOrbiting ? 9 : isSelected ? 8 : 4,
                   '--float-delay': `${departmentIndex * -0.7}s`,
+                  '--exit-delay': `${Math.max(0, 120 - Math.min(120, focusDistance * 2))}ms`,
+                  '--focus-planet-scale': isSelected ? focusPlanetScale : 1,
                 } as CSSProperties}
                 onClick={() => onSelect(department)}
                 onMouseEnter={() => onHoverStart(department.id)}
                 onMouseLeave={onHoverEnd}
                 onFocus={() => onHoverStart(department.id)}
                 onBlur={onHoverEnd}
-                aria-label={`Open ${department.name} department`}
+                tabIndex={isFocused && !isSelected ? -1 : 0}
+                aria-hidden={isFocused && !isSelected}
+                aria-label={isSelected && isFocused ? `Exit ${department.name} focus` : `Focus ${department.name} department`}
                 aria-pressed={isSelected && isFocused}
               >
                 <span className={styles.planetVisual}>
@@ -360,20 +401,33 @@ function ConstellationMap({
                 </span>
                 <span className={styles.planetCaption}><strong>{department.name}</strong><small>{department.code}</small></span>
               </button>
-              {SATELLITE_OFFSETS.map((offset, index) => {
+              {(isOrbiting || isSelected) && departmentSatelliteOffsets.map((offset, index) => {
                 const detail = orbitDetails[index];
                 const satelliteX = department.x + offset.x;
                 const satelliteY = department.y + offset.y;
-                const anchorX = satelliteX >= 82 ? '-100%' : satelliteX <= 18 ? '0%' : '-50%';
-                const anchorY = satelliteY >= 84 ? '-100%' : satelliteY <= 15 ? '0%' : '-50%';
+                const anchorX = isFocused
+                  ? offset.x > 0 ? '0%' : '-100%'
+                  : satelliteX >= 82 ? '-100%' : satelliteX <= 18 ? '0%' : '-50%';
+                const anchorY = isFocused
+                  ? offset.y > 0 ? '0%' : '-100%'
+                  : satelliteY >= 84 ? '-100%' : satelliteY <= 15 ? '0%' : '-50%';
                 return (
-                  <Fragment key={`${department.id}-${detail.label}`}>
+                  <div
+                    key={`${department.id}-${detail.label}`}
+                    className={`${styles.satelliteNode} ${isOrbiting ? styles.satelliteNodeActive : ''}`}
+                    style={{
+                      '--satellite-x': `${satelliteX - 50}%`,
+                      '--satellite-y': `${satelliteY - 50}%`,
+                    } as CSSProperties}
+                  >
                     <button
                       type="button"
-                      className={`${styles.satellite} ${isOrbiting ? styles.satelliteVisible : ''}`}
+                      className={[
+                        styles.satellite,
+                        isOrbiting ? styles.satelliteVisible : '',
+                        isSelected && isFocused ? styles.satelliteInFocus : '',
+                      ].join(' ')}
                       style={{
-                        left: `${satelliteX}%`,
-                        top: `${satelliteY}%`,
                         '--satellite-delay': `${index * 42}ms`,
                         '--satellite-tx': anchorX,
                         '--satellite-ty': anchorY,
@@ -390,14 +444,14 @@ function ConstellationMap({
                       <Image src="/planets/cutouts/moon.webp" width={detail.size} height={detail.size} alt="" />
                       <span><strong>{detail.label}</strong><small>{detail.meta}</small></span>
                     </button>
-                  </Fragment>
+                  </div>
                 );
               })}
             </div>
           );
         })}
       </div>
-      <MapLegend />
+      <MapLegend isFocused={isFocused} />
       <div className={styles.mapIndex}>ATHENA / PLATE No. 07</div>
     </section>
   );
@@ -752,6 +806,12 @@ export function ConstellationDashboard() {
           onHoverStart={startHover}
           onHoverEnd={endHover}
           onSelect={(department) => {
+            if (isMapFocused && selectedId === department.id) {
+              setIsMapFocused(false);
+              setFocused(null);
+              setHoveredId(null);
+              return;
+            }
             setSelectedId(department.id);
             setFocused(null);
             setIsMapFocused(true);
@@ -764,6 +824,7 @@ export function ConstellationDashboard() {
           onReset={() => {
             setIsMapFocused(false);
             setFocused(null);
+            setHoveredId(null);
           }}
         />
         <Dashboard
