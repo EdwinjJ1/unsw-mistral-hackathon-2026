@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Graph, GraphEdge, GraphNode } from '@/lib/fake-types';
-import fakeGraph from '@/lib/fake-graph';
+import { useEffect, useRef, useState } from 'react';
+import { endpointId, useGraphPoll } from '@/lib/useGraphPoll';
+import type { RFNode, RenderGraph } from '@/lib/useGraphPoll';
 
 // react-force-graph-2d touches `window` at module scope, so it must never be
 // evaluated during server render. next/dynamic also does not forward refs, so
@@ -27,9 +27,6 @@ const ForceGraph2D = dynamic(
 const BACKGROUND = '#070b14';
 const NODE_REL_SIZE = 4;
 
-type RFNode = GraphNode & { x?: number; y?: number };
-type RFLink = GraphEdge & { source: string | RFNode; target: string | RFNode };
-
 const TASK_STATUS_COLOR: Record<string, string> = {
   not_started: '#64748b',
   in_progress: '#38bdf8',
@@ -37,13 +34,6 @@ const TASK_STATUS_COLOR: Record<string, string> = {
   at_risk: '#f59e0b',
   done: '#22c55e',
 };
-
-function toRenderGraph(graph: Graph): { nodes: RFNode[]; links: RFLink[] } {
-  return {
-    nodes: graph.nodes.map((n) => ({ ...n })),
-    links: graph.edges.map((e) => ({ ...e, source: e.from, target: e.to })),
-  };
-}
 
 /**
  * Team size scales with how many tasks hang off it, capped so one huge team
@@ -69,7 +59,7 @@ function nodeVal(node: RFNode, nodes: RFNode[]): number {
   }
 }
 
-function nodeColor(node: RFNode, graph: { nodes: RFNode[]; links: RFLink[] }): string {
+function nodeColor(node: RFNode, graph: RenderGraph): string {
   switch (node.type) {
     case 'Team':
       return teamColor(node.id, graph);
@@ -86,14 +76,8 @@ function nodeColor(node: RFNode, graph: { nodes: RFNode[]; links: RFLink[] }): s
   }
 }
 
-const endpointId = (v: string | RFNode): string =>
-  typeof v === 'string' ? v : v.id;
-
 /** Aggregated health of everything hanging off a team. */
-function teamColor(
-  teamId: string,
-  graph: { nodes: RFNode[]; links: RFLink[] },
-): string {
+function teamColor(teamId: string, graph: RenderGraph): string {
   const members = graph.nodes.filter((n) => n.teamId === teamId);
   const scope = new Set<string>([teamId, ...members.map((n) => n.id)]);
 
@@ -140,7 +124,7 @@ export default function NeuronGraph() {
     return () => ro.disconnect();
   }, []);
 
-  const graph = useMemo(() => toRenderGraph(fakeGraph), []);
+  const { graph } = useGraphPoll();
 
   return (
     <div
