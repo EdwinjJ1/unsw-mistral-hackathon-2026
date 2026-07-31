@@ -33,7 +33,7 @@ export const commandData = [
     .toJSON(),
   new SlashCommandBuilder()
     .setName('athena-ingest')
-    .setDescription('Test Issue #6 by extracting graph changes from project text.')
+    .setDescription('Extract graph changes from pasted project text and apply them.')
     .addStringOption((option) =>
       option
         .setName('text')
@@ -87,8 +87,8 @@ export async function handleCommand(
       const edgeCount = delta.upsertEdges?.length ?? 0;
       await interaction.editReply(
         nodeCount === 0 && edgeCount === 0
-          ? 'Issue #6 generateGraphFromText produced a safe empty Delta; nothing was added.'
-          : `Issue #6 generateGraphFromText produced and applied ${nodeCount} node${nodeCount === 1 ? '' : 's'} and ${edgeCount} edge${edgeCount === 1 ? '' : 's'}.`,
+          ? 'No graph changes could be extracted from that text; nothing was added.'
+          : `Ingested the text and applied ${nodeCount} node${nodeCount === 1 ? '' : 's'} and ${edgeCount} edge${edgeCount === 1 ? '' : 's'} to the project graph.`,
       );
       return;
     }

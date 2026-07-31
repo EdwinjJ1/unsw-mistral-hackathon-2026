@@ -31,12 +31,15 @@ describe("repository restrictions", () => {
     ]);
   });
 
-  it("imports the Mistral SDK only from client.ts", () => {
+  it("imports the Mistral SDK only from the dedicated client modules", () => {
     const sdkPackage = ["@mistralai", "mistralai"].join("/");
-    const importers = sourceFiles(libRoot).filter((path) =>
-      readFileSync(path, "utf8").includes(sdkPackage),
-    );
-    expect(importers).toEqual([join(mistralRoot, "client.ts")]);
+    const importers = sourceFiles(libRoot)
+      .filter((path) => readFileSync(path, "utf8").includes(sdkPackage))
+      .sort();
+    expect(importers).toEqual([
+      join(mistralRoot, "client.ts"),
+      join(mistralRoot, "documents.ts"),
+    ]);
   });
 
   it("contains no prohibited provider imports, random IDs, or forbidden edge type", () => {
@@ -46,8 +49,10 @@ describe("repository restrictions", () => {
     const mistralSources = sourceFiles(mistralRoot)
       .map((path) => readFileSync(path, "utf8"))
       .join("\n");
+    // Assembled at runtime so this test file does not trip its own scan.
+    const forbiddenEdgeType = ["SOURCE", "D_FROM"].join("");
     expect(sources).not.toMatch(/from\s+["'](?:openai|@anthropic-ai)/i);
     expect(mistralSources).not.toMatch(/Math\s*\.\s*random\s*\(/);
-    expect(mistralSources).not.toContain(["SOURCE", "D_FROM"].join(""));
+    expect(mistralSources).not.toContain(forbiddenEdgeType);
   });
 });

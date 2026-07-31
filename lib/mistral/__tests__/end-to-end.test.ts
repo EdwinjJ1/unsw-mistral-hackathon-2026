@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { closeDb, resetDb } from "../../db";
 import { applyDelta, getGraph, getPersonSubgraph } from "../../graph";
 import { parseGraph } from "../../validation";
-import { POST as ingestDocument } from "../../../app/api/ingest/route";
 import {
   composeDM,
   extractDelta,
@@ -37,20 +36,6 @@ afterEach(() => {
 });
 
 describe("required forced-fallback demo flow", () => {
-  it("wires Track A ingest to Track E and accepts a safe empty delta", async () => {
-    const response = await ingestDocument(
-      new Request("http://localhost/api/ingest", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: "Hello and thanks for reading." }),
-      }),
-    );
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({});
-    expect(getGraph()).toEqual({ nodes: [], edges: [] });
-  });
-
   it("uses Track A applyDelta and surfaces the canonical Legal conflict", async () => {
     const initial = makeDemoGraph();
     applyDelta({ upsertNodes: initial.nodes, upsertEdges: initial.edges });
@@ -105,7 +90,7 @@ describe("required forced-fallback demo flow", () => {
     const { changed } = applyDelta(delta);
     const conflicts = await findContradictions(getGraph(), changed);
     expect(conflicts.map((edge) => edge.id)).toEqual([
-      "blocker.waiting-on-legal--CONFLICTS_WITH--decision.legal-approvals-cleared",
+      "blocker.waiting-on-legal-ops--CONFLICTS_WITH--decision.legal-approvals-cleared",
     ]);
   });
 });

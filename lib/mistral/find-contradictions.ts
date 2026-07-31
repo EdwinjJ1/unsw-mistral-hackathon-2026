@@ -8,33 +8,40 @@ import { selectContradictionCandidates } from "./graph-context";
 import { contradictionsSchema } from "./schemas";
 import { requestStructured } from "./structured";
 
-function mentionsLegal(node: GraphNode, legalTeamIds: ReadonlySet<string>): boolean {
-  return (
-    Boolean(node.teamId && legalTeamIds.has(node.teamId)) ||
-    /\blegal\b/i.test(`${node.id} ${node.label} ${node.summary ?? ""}`)
+const GENERIC_TOKENS = new Set([
+  "the", "and", "for", "with", "team", "task", "work", "all", "are",
+  "waiting", "blocked", "approvals", "approval", "cleared", "approved",
+  "decision", "done", "complete", "completed", "resolved", "pending",
+]);
+
+function significantTokens(node: GraphNode): Set<string> {
+  return new Set(
+    `${node.id.replace(/^[a-z]+\./, "").replaceAll("-", " ")} ${node.label} ${node.summary ?? ""}`
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((token) => token.length >= 3 && !GENERIC_TOKENS.has(token)),
   );
 }
 
+function sharesSubject(left: GraphNode, right: GraphNode): boolean {
+  const rightTokens = significantTokens(right);
+  return [...significantTokens(left)].some((token) => rightTokens.has(token));
+}
+
+/*
+ * Deterministic safety net: a Blocker that says work is waiting on something
+ * contradicts a Decision that records the same subject as cleared/approved.
+ * Purely lexical so it works offline for any team or subject, not just the
+ * demo's Legal scenario.
+ */
 function fallbackConflicts(
   graph: Graph,
   candidates: readonly GraphNode[],
   anchorIds: ReadonlySet<string>,
 ): ConflictDraft[] {
-  const candidateIds = new Set(candidates.map((node) => node.id));
-  const legalTeamIds = new Set(
-    graph.nodes
-      .filter(
-        (node) =>
-          node.type === "Team" &&
-          /\blegal\b/i.test(`${node.id} ${node.label}`),
-      )
-      .map((node) => node.id),
-  );
-
   const blockers = candidates.filter(
     (node) =>
       node.type === "Blocker" &&
-      mentionsLegal(node, legalTeamIds) &&
       /\b(wait(?:ing)?|blocked|unresponsive|no\s+response|never\s+(?:heard|got))\b/i.test(
         `${node.label} ${node.summary ?? ""}`,
       ),
@@ -42,30 +49,27 @@ function fallbackConflicts(
   const decisions = candidates.filter(
     (node) =>
       node.type === "Decision" &&
-      mentionsLegal(node, legalTeamIds) &&
-      /\b(?:all\s+)?(?:legal\s+)?approvals?\s+(?:are\s+)?(?:all\s+)?(?:cleared|approved|complete(?:d)?)\b/i.test(
+      /\b(cleared|approved|complete(?:d)?|resolved|done|signed\s+off)\b/i.test(
         `${node.label} ${node.summary ?? ""}`,
       ),
   );
 
+  const conflicts: ConflictDraft[] = [];
   for (const blocker of blockers) {
     for (const decision of decisions) {
       if (
-        candidateIds.has(blocker.id) &&
-        candidateIds.has(decision.id) &&
-        (anchorIds.has(blocker.id) || anchorIds.has(decision.id))
+        (anchorIds.has(blocker.id) || anchorIds.has(decision.id)) &&
+        sharesSubject(blocker, decision)
       ) {
-        return [
-          {
-            from: blocker.id,
-            to: decision.id,
-            note: "Work is reported as waiting on Legal, while Legal records all approvals as cleared.",
-          },
-        ];
+        conflicts.push({
+          from: blocker.id,
+          to: decision.id,
+          note: `Work is reported as blocked ("${blocker.label}"), while a recorded decision says otherwise ("${decision.label}").`,
+        });
       }
     }
   }
-  return [];
+  return conflicts;
 }
 
 function normalizeConflicts(
@@ -185,11 +189,11 @@ export async function findContradictions(
     fallback,
   });
 
-  const deterministicConflicts = fallback().conflicts;
-
+  // Trust the model's conflicts when it found any (normalizeConflicts still
+  // rejects invalid pairs); the lexical fallback is only a recall backstop.
   return normalizeConflicts(
     graph,
-    deterministicConflicts.length > 0 ? deterministicConflicts : result.conflicts,
+    result.conflicts.length > 0 ? result.conflicts : fallback().conflicts,
     candidateIds,
     anchorIds,
   );

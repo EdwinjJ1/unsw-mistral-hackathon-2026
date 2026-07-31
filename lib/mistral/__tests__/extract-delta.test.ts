@@ -164,9 +164,6 @@ describe("extractDelta", () => {
           to: "task.rollback-runbook",
           type: "BLOCKS",
         }),
-        expect.objectContaining({
-          id: "task.rollback-runbook--DEPENDS_ON--team.legal",
-        }),
       ]),
     );
     expect(delta.upsertEdges).not.toEqual(
@@ -176,7 +173,7 @@ describe("extractDelta", () => {
     );
   });
 
-  it("preserves deterministic supported facts when the model omits the blocker", async () => {
+  it("trusts a grounded model draft over the deterministic heuristics", async () => {
     delete process.env.MISTRAL_FORCE_FALLBACK;
     process.env.MISTRAL_API_KEY = "test-key";
     setStructuredTransportForTests(async () =>
@@ -197,6 +194,22 @@ describe("extractDelta", () => {
           },
         ],
       }),
+    );
+
+    const delta = await extractDelta(demoReply, makeDemoGraph(), demoSource);
+    expect(delta.upsertNodes?.map((node) => node.id)).toEqual([
+      "decision.legal-approvals-cleared",
+    ]);
+    expect(delta.upsertEdges?.map((edge) => edge.id)).toEqual([
+      "task.rollback-runbook--DEPENDS_ON--decision.legal-approvals-cleared",
+    ]);
+  });
+
+  it("falls back to deterministic extraction when the model returns nothing", async () => {
+    delete process.env.MISTRAL_FORCE_FALLBACK;
+    process.env.MISTRAL_API_KEY = "test-key";
+    setStructuredTransportForTests(async () =>
+      JSON.stringify({ nodes: [], edges: [] }),
     );
 
     const delta = await extractDelta(demoReply, makeDemoGraph(), demoSource);

@@ -110,7 +110,7 @@ describe("findContradictions", () => {
     expect(await findContradictions(graph, changedIds)).toEqual([]);
   });
 
-  it("rejects model-inferred Team-to-Team conflicts without entity claims", async () => {
+  it("rejects model-inferred Team-to-Team conflicts but keeps valid entity claims", async () => {
     const { graph, changedIds } = await updatedDemoGraph();
     delete process.env.MISTRAL_FORCE_FALLBACK;
     process.env.MISTRAL_API_KEY = "test-key";
@@ -134,7 +134,19 @@ describe("findContradictions", () => {
     const conflicts = await findContradictions(graph, changedIds);
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]?.id).toBe(
-      "blocker.waiting-on-legal--CONFLICTS_WITH--decision.legal-approvals-cleared",
+      "decision.legal-approvals-cleared--CONFLICTS_WITH--task.rollback-runbook",
     );
+  });
+
+  it("uses the lexical fallback only when the model reports no conflicts", async () => {
+    const { graph, changedIds } = await updatedDemoGraph();
+    delete process.env.MISTRAL_FORCE_FALLBACK;
+    process.env.MISTRAL_API_KEY = "test-key";
+    setStructuredTransportForTests(async () => JSON.stringify({ conflicts: [] }));
+
+    const conflicts = await findContradictions(graph, changedIds);
+    expect(conflicts.map((edge) => edge.id)).toEqual([
+      "blocker.waiting-on-legal--CONFLICTS_WITH--decision.legal-approvals-cleared",
+    ]);
   });
 });

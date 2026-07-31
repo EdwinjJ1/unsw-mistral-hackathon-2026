@@ -30,6 +30,14 @@ function forceFallback(): boolean {
   return process.env.MISTRAL_FORCE_FALLBACK === "1";
 }
 
+function warnFallback(schemaName: string, reason: string, error?: unknown): void {
+  const detail =
+    error === undefined
+      ? ""
+      : ` (${error instanceof Error ? error.message : String(error)})`;
+  console.warn(`[mistral] ${schemaName}: ${reason}${detail} - using deterministic fallback`);
+}
+
 function schemaToJson(schema: z.ZodType): Record<string, unknown> {
   const jsonSchema = { ...z.toJSONSchema(schema) };
   delete jsonSchema.$schema;
@@ -108,12 +116,16 @@ export async function requestStructured<T>(
   let firstContent: unknown;
   try {
     firstContent = await transport(baseRequest);
-  } catch {
+  } catch (error) {
+    warnFallback(options.schemaName, "request failed", error);
     return options.fallback();
   }
 
   const firstText = contentText(firstContent);
-  if (!firstText) return options.fallback();
+  if (!firstText) {
+    warnFallback(options.schemaName, "empty response");
+    return options.fallback();
+  }
 
   const first = parseAndValidate(firstText, options.schema);
   if (first.success) return first.data;
@@ -126,13 +138,21 @@ export async function requestStructured<T>(
   let repairedContent: unknown;
   try {
     repairedContent = await transport(repairRequest);
-  } catch {
+  } catch (error) {
+    warnFallback(options.schemaName, "repair request failed", error);
     return options.fallback();
   }
 
   const repairedText = contentText(repairedContent);
-  if (!repairedText) return options.fallback();
+  if (!repairedText) {
+    warnFallback(options.schemaName, "empty repair response");
+    return options.fallback();
+  }
 
   const repaired = parseAndValidate(repairedText, options.schema);
-  return repaired.success ? repaired.data : options.fallback();
+  if (!repaired.success) {
+    warnFallback(options.schemaName, `still invalid after repair (${repaired.error})`);
+    return options.fallback();
+  }
+  return repaired.data;
 }

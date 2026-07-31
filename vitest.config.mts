@@ -8,7 +8,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    exclude: ["dist/**", "node_modules/**"],
+    // bot/dispatch.test.ts uses node:test and runs via `npm run test:core`.
+    exclude: ["dist/**", "node_modules/**", "bot/dispatch.test.ts"],
     include: ["lib/mistral/__tests__/**/*.test.ts", "bot/**/*.test.ts"],
     restoreMocks: true,
   },

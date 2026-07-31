@@ -15,23 +15,35 @@ function emptyDraft(): DeltaDraft {
   return { nodes: [], edges: [] };
 }
 
-function legalTeam(context: Graph): GraphNode | undefined {
+const GENERIC_TOKENS = new Set([
+  "the", "and", "for", "with", "team", "task", "new", "old", "all",
+]);
+
+function significantTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !GENERIC_TOKENS.has(token));
+}
+
+function mentionedTeam(text: string, context: Graph): GraphNode | undefined {
+  const textTokens = new Set(significantTokens(text.normalize("NFKC")));
   return context.nodes.find(
     (node) =>
       node.type === "Team" &&
-      /\blegal\b/i.test(`${node.id} ${node.label} ${node.summary ?? ""}`),
+      significantTokens(`${node.id} ${node.label}`).some((token) =>
+        textTokens.has(token),
+      ),
   );
 }
 
 function relevantTask(text: string, context: Graph): GraphNode | undefined {
   const tasks = context.nodes.filter((node) => node.type === "Task");
-  const lower = text.toLowerCase();
+  const textTokens = new Set(significantTokens(text.normalize("NFKC")));
   return tasks
     .map((task) => {
-      const tokens = task.label.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-      const tokenScore = tokens.filter((token) => lower.includes(token)).length;
-      const demoScore = /rollback|runbook/i.test(task.label) && /runbook|rollback/i.test(text) ? 10 : 0;
-      return { task, score: demoScore + tokenScore };
+      const tokens = significantTokens(task.label);
+      return { task, score: tokens.filter((token) => textTokens.has(token)).length };
     })
     .filter((entry) => entry.score > 0)
     .sort((left, right) => right.score - left.score || left.task.id.localeCompare(right.task.id))[0]
@@ -57,29 +69,34 @@ function fallbackExtractDraft(text: string, context: Graph): DeltaDraft {
     });
   }
 
-  const legal = /\blegal\b/i.test(lower) ? legalTeam(context) : undefined;
-  if (isBlocked && legal) {
+  const waitedOnTeam = isBlocked ? mentionedTeam(text, context) : undefined;
+  if (isBlocked && waitedOnTeam) {
+    const blockerLabel = `Waiting on ${waitedOnTeam.label}`;
+    const waitPattern = new RegExp(
+      `waiting\\s+(?:for|on)\\s+${waitedOnTeam.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+      "i",
+    );
     const existingBlocker = context.nodes.find(
       (node) =>
         node.type === "Blocker" &&
-        (node.id === "blocker.waiting-on-legal" ||
-          /waiting\s+(?:for|on)\s+legal/i.test(`${node.label} ${node.summary ?? ""}`)),
+        (nodeId("Blocker", node.label) === nodeId("Blocker", blockerLabel) ||
+          waitPattern.test(`${node.label} ${node.summary ?? ""}`)),
     );
-    const blockerId = existingBlocker?.id ?? "blocker.waiting-on-legal";
+    const blockerId = existingBlocker?.id ?? nodeId("Blocker", blockerLabel);
     nodes.push({
       id: blockerId,
       type: "Blocker",
-      label: existingBlocker?.label ?? "Waiting on Legal",
+      label: existingBlocker?.label ?? blockerLabel,
       status: "blocked",
       ...(task.teamId ? { teamId: task.teamId } : {}),
-      summary: "Work is blocked while waiting for Legal to respond.",
+      summary: `Work is blocked while waiting for ${waitedOnTeam.label} to respond.`,
     });
     edges.push({ from: blockerId, to: task.id, type: "BLOCKS" });
 
     const existingDependency = context.edges.find((edge) => {
       if (edge.type !== "DEPENDS_ON" || edge.from !== task.id) return false;
       const target = context.nodes.find((node) => node.id === edge.to);
-      return edge.to === legal.id || target?.teamId === legal.id;
+      return edge.to === waitedOnTeam.id || target?.teamId === waitedOnTeam.id;
     });
     if (existingDependency) {
       edges.push({
@@ -89,7 +106,7 @@ function fallbackExtractDraft(text: string, context: Graph): DeltaDraft {
         ...(existingDependency.note ? { note: existingDependency.note } : {}),
       });
     } else if (/never\s+got\s+back|waiting\s+(?:for|on)/i.test(lower)) {
-      edges.push({ from: task.id, to: legal.id, type: "DEPENDS_ON" });
+      edges.push({ from: task.id, to: waitedOnTeam.id, type: "DEPENDS_ON" });
     }
   }
 
@@ -162,11 +179,12 @@ export async function extractDelta(
     fallback,
   });
 
-  const deterministicDraft = fallback();
+  // The model draft is authoritative; the deterministic draft only steps in
+  // when the model (or the offline fallback path) produced nothing usable.
   const groundedDraft =
-    deterministicDraft.nodes.length > 0 || deterministicDraft.edges.length > 0
-      ? deterministicDraft
-      : anchorReplyDraft(draft, text, context);
+    draft.nodes.length > 0 || draft.edges.length > 0
+      ? anchorReplyDraft(draft, text, context)
+      : fallback();
 
   return normalizeDeltaDraft(groundedDraft, {
     context,

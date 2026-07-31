@@ -24,6 +24,7 @@ describe('Issue #6 manual commands', () => {
   it('registers athena-ingest alongside the existing commands', () => {
     expect(commandData.map((command) => command.name)).toEqual([
       'athena-hello',
+      'athena-dispatch',
       'athena-status',
       'athena-ingest',
     ]);
@@ -41,7 +42,7 @@ describe('Issue #6 manual commands', () => {
 
     expect(ingestText).toHaveBeenCalledWith('# Engineering Team');
     expect(editReply).toHaveBeenCalledWith(
-      'Issue #6 generateGraphFromText produced and applied 2 nodes and 1 edge.',
+      'Ingested the text and applied 2 nodes and 1 edge to the project graph.',
     );
   });
 });
