@@ -142,7 +142,7 @@
   height: calc(100dvh - 62px);
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(390px, 29vw, 440px);
+  grid-template-columns: minmax(0, 1fr) clamp(420px, 30vw, 470px);
   transition: grid-template-columns 720ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -173,6 +173,22 @@
   opacity: 0.48;
 }
 
+.mapPanel::before {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  content: '';
+  opacity: 0;
+  background:
+    radial-gradient(circle at 52% 54%, transparent 0 23%, rgb(242 238 227 / 16%) 43%, rgb(242 238 227 / 86%) 82%);
+  transition: opacity 820ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mapPanelFocused::before {
+  opacity: 1;
+}
+
 .mapIntro {
   position: absolute;
   z-index: 13;
@@ -184,8 +200,12 @@
 }
 
 .mapPanelFocused .mapIntro {
-  opacity: 0.58;
   transform: translateY(-2px);
+}
+
+.mapPanelFocused .mapIntro h1 {
+  max-width: 7.5ch;
+  font-size: clamp(34px, 3.1vw, 52px);
 }
 
 .mapIntro p {
@@ -216,17 +236,23 @@
 }
 
 .chart {
+  --focus-x: 0%;
+  --focus-y: 0%;
+  --focus-origin-x: 50%;
+  --focus-origin-y: 50%;
+  --focus-zoom: 1.3;
   position: absolute;
   z-index: 3;
   inset: 2.5% 4.5% 7% 2.5%;
   transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: center;
-  transition: transform 860ms cubic-bezier(0.18, 0.82, 0.18, 1);
+  transform-origin: var(--focus-origin-x) var(--focus-origin-y);
+  transition: transform 980ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .chartFocused {
-  transform: translate3d(0, 0, 0) scale(1);
+  transform: translate3d(var(--focus-x), var(--focus-y), 0) scale(var(--focus-zoom));
+  transition-delay: 70ms;
 }
 
 .network {
@@ -244,7 +270,9 @@
   fill: none;
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
-  transition: opacity 280ms ease, stroke 280ms ease;
+  transition:
+    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 420ms ease;
 }
 
 .networkLine {
@@ -252,6 +280,15 @@
   stroke-width: 0.7;
   stroke-dasharray: 1 4;
   opacity: 0.055;
+}
+
+.networkFocused .networkLine,
+.networkFocused .networkActive {
+  opacity: 0;
+}
+
+.networkFocused .networkActive {
+  animation-play-state: paused;
 }
 
 .networkActive {
@@ -269,8 +306,32 @@
   animation: orbit-draw 380ms ease both;
 }
 
+.systemOrbit,
+.systemOrbitInner {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: rgb(21 63 92 / 28%);
+  stroke-width: 0.7;
+  stroke-dasharray: 1 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: system-orbit-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.systemOrbit {
+  transform: rotate(-5deg);
+}
+
+.systemOrbitInner {
+  stroke: rgb(165 81 48 / 22%);
+  stroke-dasharray: 5 6;
+  transform: rotate(8deg);
+  animation-delay: 70ms;
+}
+
 .planetButton {
   --float-delay: 0s;
+  --exit-delay: 0ms;
   position: absolute;
   padding: 0;
   border: 0;
@@ -279,7 +340,7 @@
   cursor: pointer;
   transform: translate(-50%, -50%);
   animation: planet-float 7s ease-in-out var(--float-delay) infinite;
-  transition: opacity 360ms ease, filter 360ms ease;
+  transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .planetButton:focus-visible {
@@ -292,25 +353,43 @@
   inset: 0;
   display: block;
   transform: translateZ(0) scale(1);
-  transition: transform 720ms cubic-bezier(0.16, 1, 0.3, 1), filter 320ms ease;
+  transition: transform 880ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .planetButton:hover .planetVisual,
 .planetButton:focus-visible .planetVisual {
   transform: translateZ(0) scale(1.08) rotate(1deg);
-  filter: saturate(1.08) contrast(1.02);
 }
 
 .planetInFocus .planetVisual,
 .planetInFocus:hover .planetVisual,
 .planetInFocus:focus-visible .planetVisual {
-  transform: translateZ(0) scale(1.18);
+  transform: translateZ(0) scale(var(--focus-planet-scale, 1.18));
+}
+
+.planetInFocus {
+  animation: none;
+  transform: translate(-50%, -50%);
+}
+
+.planetOutOfFocus {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 480ms cubic-bezier(0.4, 0, 0.2, 1) var(--exit-delay);
+}
+
+.planetOutOfFocus .planetVisual {
+  transform: translateZ(0) scale(0.76);
+}
+
+.planetOutOfFocus .planetCaption {
+  opacity: 0;
+  transform: translate(-50%, 7px) scale(0.96);
 }
 
 .planetMuted {
   opacity: 0.74;
-  filter: grayscale(0.18);
 }
 
 .planetImage {
@@ -324,7 +403,7 @@
   z-index: -1;
   border: 1px solid transparent;
   border-radius: 50%;
-  transition: border-color 320ms ease, transform 520ms ease;
+  transition: border-color 420ms ease, transform 620ms ease, opacity 420ms ease;
 }
 
 .planetSelected .planetHalo {
@@ -395,12 +474,30 @@
   opacity: 1;
 }
 
+.satelliteNode {
+  --satellite-x: 0%;
+  --satellite-y: 0%;
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+  transform: translate3d(var(--satellite-x), var(--satellite-y), 0);
+  transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.satelliteNodeActive {
+  z-index: 12;
+  will-change: transform;
+}
+
 .satellite {
   --satellite-delay: 0ms;
   --satellite-tx: -50%;
   --satellite-ty: -50%;
   position: absolute;
-  z-index: 12;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
   display: flex;
   min-width: max-content;
   align-items: center;
@@ -435,6 +532,12 @@
   opacity: 1;
   pointer-events: auto;
   transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(1);
+  will-change: transform, opacity;
+  animation: satellite-reveal 420ms cubic-bezier(0.16, 1, 0.3, 1) var(--satellite-delay) backwards;
+}
+
+.satelliteInFocus {
+  border-color: rgb(21 63 92 / 32%);
 }
 
 .satellite:hover,
@@ -573,8 +676,12 @@
 }
 
 .sidebar {
+  /* Two ink levels so hierarchy leans on colour, not only on size. */
+  --ink-soft: #545a54;
+  --ink-faint: #666c66;
   position: relative;
-  z-index: 18;
+  /* Above the global paper grain so the record sheet is not double-textured. */
+  z-index: 31;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   min-width: 0;
@@ -594,7 +701,7 @@
 .sidebar::after {
   position: absolute;
   z-index: 0;
-  top: 191px;
+  top: 222px;
   bottom: 24px;
   left: 50%;
   border-left: 1px dotted transparent;
@@ -617,14 +724,15 @@
   z-index: 4;
   top: 26px;
   left: -18px;
-  width: 43px;
-  height: 148px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  padding-top: 17px;
+  width: 44px;
+  height: 180px;
+  display: grid;
+  grid-template-rows: 7px 34px minmax(44px, 1fr) 20px;
+  justify-items: center;
+  align-items: start;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 15px 0 25px;
   border: 0;
   clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%);
   color: var(--paper-light);
@@ -657,12 +765,16 @@
 }
 
 .bookmarkTab span {
+  align-self: center;
   font-size: 8px;
   font-weight: 400;
   letter-spacing: 0.18em;
 }
 
 .bookmarkTab strong {
+  align-self: center;
+  max-height: 55px;
+  overflow: hidden;
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.11em;
@@ -670,14 +782,13 @@
 }
 
 .bookmarkTab i {
-  position: absolute;
-  right: 50%;
-  bottom: 18px;
+  position: static;
+  align-self: end;
   font-family: 'EB Garamond', Georgia, serif;
   font-size: 20px;
   font-style: normal;
   line-height: 1;
-  transform: translateX(50%);
+  transform: translateX(0);
   transition: transform 220ms ease;
 }
 
@@ -689,7 +800,7 @@
 }
 
 .bookmarkTab:hover i {
-  transform: translateX(calc(50% + 2px));
+  transform: translateX(2px);
 }
 
 .bookmarkTab:focus-visible {
@@ -702,7 +813,7 @@
 }
 
 .sidebarCollapsed .bookmarkTab:hover i {
-  transform: translateX(calc(50% - 2px));
+  transform: translateX(-2px);
 }
 
 .dashboard {
@@ -715,7 +826,7 @@
   touch-action: pan-y;
   border: 1px solid rgb(29 36 35 / 35%);
   background:
-    linear-gradient(90deg, transparent 31px, rgb(165 81 48 / 13%) 31px, rgb(165 81 48 / 13%) 32px, transparent 32px),
+    linear-gradient(90deg, transparent 24px, rgb(165 81 48 / 13%) 24px, rgb(165 81 48 / 13%) 25px, transparent 25px),
     linear-gradient(rgb(249 246 238 / 80%), rgb(247 243 233 / 88%)),
     url('/textures/paper-cotton.webp') 0 0 / 520px 520px repeat,
     var(--paper-light);
@@ -762,7 +873,7 @@
 }
 
 .dashboardHeader {
-  padding: 24px 28px 24px 48px;
+  padding: 22px 22px 22px 36px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -770,11 +881,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 21px;
+  margin-bottom: 18px;
   padding-bottom: 8px;
   border-bottom: 1px dotted rgb(29 36 35 / 25%);
   color: var(--blue);
-  font-size: 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.085em;
 }
 
 .recordLine p {
@@ -787,7 +899,7 @@
 
 .dashboardTitleRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 82px;
+  grid-template-columns: minmax(0, 1fr) 72px;
   align-items: center;
   gap: 10px;
 }
@@ -798,20 +910,20 @@
 }
 
 .dashboardTitleRow h2 {
-  margin: 0 0 7px;
+  margin: 0 0 8px;
   max-width: 100%;
-  font-size: clamp(38px, 2.8vw, 46px);
+  font-size: clamp(30px, 2.2vw, 36px);
   font-weight: 400;
-  line-height: 0.9;
-  letter-spacing: -0.048em;
+  line-height: 0.94;
+  letter-spacing: -0.036em;
   overflow-wrap: break-word;
   text-wrap: balance;
 }
 
 .dashboardPlanet {
   position: relative;
-  width: 82px;
-  height: 82px;
+  width: 72px;
+  height: 72px;
   display: block;
   overflow: visible;
   filter: saturate(0.94);
@@ -857,8 +969,8 @@
   align-items: center;
   gap: 7px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -883,27 +995,27 @@
 
 .description {
   max-width: 42ch;
-  margin: 23px 0 0;
-  color: #3c413d;
-  font-size: 16px;
-  line-height: 1.55;
+  margin: 18px 0 0;
+  color: #343a36;
+  font-size: 15.5px;
+  line-height: 1.58;
 }
 
 .dashboardHeader blockquote {
   max-width: 39ch;
-  margin: 17px 0 0;
+  margin: 14px 0 0;
   padding-left: 14px;
   border-left: 2px solid var(--blue);
   color: var(--blue);
-  font-size: 15px;
+  font-size: 14.5px;
   font-style: italic;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  margin-left: 32px;
+  margin-left: 24px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -911,7 +1023,7 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  padding: 16px 8px 14px;
+  padding: 15px 8px 13px;
   border-right: 1px solid rgb(29 36 35 / 18%);
   text-align: center;
 }
@@ -921,22 +1033,23 @@
 }
 
 .metrics strong {
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 500;
   line-height: 1;
 }
 
 .metrics span {
-  margin-top: 7px;
-  color: var(--ink-soft);
-  font-size: 8px;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 .focusNotice {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 5px 12px;
-  margin: 18px 25px 0 48px;
+  margin: 18px 22px 0 36px;
   padding: 13px 14px;
   border-top: 1px solid rgb(21 63 92 / 34%);
   border-right: 0;
@@ -949,22 +1062,24 @@
 .focusNotice span {
   grid-column: 1 / -1;
   color: var(--blue);
-  font-size: 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 .focusNotice strong {
   font-size: 16px;
+  font-weight: 600;
 }
 
 .focusNotice small {
   align-self: center;
   color: var(--ink-soft);
-  font-size: 8px;
+  font-size: 10.5px;
   text-align: right;
 }
 
 .dashboardSection {
-  padding: 23px 25px 0 48px;
+  padding: 22px 22px 0 36px;
 }
 
 .sectionTitle {
@@ -978,14 +1093,15 @@
 
 .sectionTitle h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .sectionTitle span {
-  color: var(--ink-soft);
-  font-size: 9px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
 }
 
 .peopleList {
@@ -994,11 +1110,11 @@
 
 .peopleList article {
   display: grid;
-  grid-template-columns: 23px 34px 1fr;
+  grid-template-columns: 24px 34px 1fr;
   align-items: center;
   gap: 10px;
-  min-height: 48px;
-  padding: 8px 6px;
+  min-height: 46px;
+  padding: 7px 6px;
   border-top: 1px dotted rgb(29 36 35 / 22%);
   transition: background 180ms ease, color 180ms ease;
 }
@@ -1009,9 +1125,10 @@
 }
 
 .personIndex {
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .avatar {
@@ -1024,7 +1141,8 @@
   color: var(--paper);
   background: var(--blue);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
 }
 
 .peopleList article > span:last-child {
@@ -1035,7 +1153,11 @@
 
 .peopleList strong {
   overflow: hidden;
-  font-size: 13px;
+  /* 600 is the heaviest EB Garamond face loaded — declare it rather than
+     inheriting <strong>'s 700 and letting the browser pick for us. */
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1044,7 +1166,8 @@
   overflow: hidden;
   color: var(--ink-soft);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px;
+  font-size: 11.5px;
+  letter-spacing: 0.005em;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1063,13 +1186,14 @@
 
 .subteamList > span {
   min-width: 0;
-  padding: 9px 7px;
+  padding: 10px 8px;
   overflow: hidden;
   border-bottom: 1px dotted rgb(29 36 35 / 22%);
   background: transparent;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px;
-  line-height: 1.25;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
@@ -1098,7 +1222,7 @@
 }
 
 .workList article {
-  padding: 12px 5px 12px 7px;
+  padding: 11px 5px 11px 7px;
   border: 0;
   border-bottom: 1px dotted rgb(29 36 35 / 24%);
   background: transparent;
@@ -1115,29 +1239,31 @@
 
 .workTopline {
   display: grid;
-  grid-template-columns: 21px 1fr auto;
+  grid-template-columns: 22px 1fr auto;
   align-items: baseline;
   gap: 7px;
 }
 
 .workTopline > span {
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
+  font-size: 10px;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .workTopline strong {
-  font-size: 12.5px;
-  line-height: 1.2;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.28;
 }
 
 .workTopline em {
-  padding: 3px 5px;
+  padding: 3px 6px;
   border: 1px solid currentColor;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 7.5px;
+  font-size: 9.5px;
   font-style: normal;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -1157,15 +1283,16 @@
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 8px;
-  margin: 8px 0 7px 28px;
+  margin: 9px 0 8px 26px;
   color: var(--ink-soft);
-  font-size: 7.5px;
-  letter-spacing: 0.07em;
+  font-size: 11px;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.03em;
 }
 
 .progressTrack {
-  height: 3px;
-  margin-left: 28px;
+  height: 4px;
+  margin-left: 26px;
   background: rgb(29 36 35 / 12%);
 }
 
@@ -1180,8 +1307,8 @@
   grid-template-columns: auto 1px minmax(67px, 1fr) auto;
   align-items: center;
   gap: 7px;
-  margin: 10px 0 0 28px;
-  opacity: 0.62;
+  margin: 10px 0 0 26px;
+  opacity: 0.78;
   transition: opacity 180ms ease;
 }
 
@@ -1192,16 +1319,16 @@
 
 .taskControls button,
 .taskControls select {
-  min-height: 28px;
+  min-height: 32px;
   border: 0;
   border-bottom: 1px solid rgb(29 36 35 / 32%);
   border-radius: 0;
   color: var(--blue);
   background: transparent;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px;
+  font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.035em;
 }
 
 .taskControls button {
@@ -1234,7 +1361,7 @@
 
 .taskControlRule {
   width: 1px;
-  height: 14px;
+  height: 16px;
   background: rgb(29 36 35 / 20%);
 }
 
@@ -1243,7 +1370,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  margin: 7px 0 1px 28px;
+  margin: 7px 0 1px 26px;
   padding: 6px 8px;
   border: 1px solid rgb(21 63 92 / 24%);
   color: var(--blue);
@@ -1255,7 +1382,7 @@
 .customTimeTag > span {
   padding-right: 9px;
   border-right: 1px solid rgb(21 63 92 / 20%);
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   white-space: nowrap;
 }
@@ -1270,8 +1397,9 @@
   background: transparent;
   color-scheme: light;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.035em;
+  font-size: 12px;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.025em;
 }
 
 .customTimeTag:focus-within {
@@ -1289,12 +1417,12 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  min-height: 17px;
-  margin: 5px 0 0 28px;
-  color: #617550;
+  min-height: 18px;
+  margin: 6px 0 0 26px;
+  color: #5c7049;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
-  letter-spacing: 0.045em;
+  font-size: 11px;
+  letter-spacing: 0.02em;
 }
 
 .taskFeedback span {
@@ -1306,9 +1434,10 @@
 .taskFeedback strong {
   flex: 0 0 auto;
   color: var(--blue);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.05em;
 }
 
 .taskFeedbackError,
@@ -1330,11 +1459,12 @@
 .dashboardFooter {
   display: flex;
   justify-content: space-between;
-  margin-top: 24px;
-  padding: 15px 25px 18px 48px;
+  margin-top: 22px;
+  padding: 14px 22px 16px 36px;
   border-top: 1px solid var(--rule);
-  color: var(--ink-soft);
-  font-size: 7.5px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.07em;
   line-height: 1.35;
 }
 
@@ -1367,11 +1497,9 @@
 @keyframes orbit-draw {
   from {
     opacity: 0;
-    stroke-dashoffset: 22;
   }
   to {
     opacity: 1;
-    stroke-dashoffset: 0;
   }
 }
 
@@ -1383,6 +1511,26 @@
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes system-orbit-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes satellite-reveal {
+  from {
+    opacity: 0;
+    transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(1);
   }
 }
 
@@ -1421,7 +1569,7 @@
 
 @media (max-width: 1180px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-columns: minmax(0, 1fr) 400px;
   }
 
   .planetButton {
@@ -1435,6 +1583,15 @@
 
   .dashboardHeader {
     padding-right: 20px;
+  }
+
+  /* At this width two columns can no longer hold the longest sub-team name. */
+  .subteamList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .subteamList > span:nth-child(odd) {
+    border-right: 0;
   }
 }
 
@@ -1482,7 +1639,7 @@
   }
 
   .chartFocused {
-    transform: translate3d(0, 0, 0) scale(1);
+    --focus-zoom: 1.16;
   }
 
   .satellite {
@@ -1515,6 +1672,7 @@
     left: 36px;
     width: 126px;
     height: 34px;
+    display: flex;
     flex-direction: row;
     justify-content: flex-start;
     gap: 9px;
@@ -1547,8 +1705,9 @@
   }
 
   .bookmarkTab i {
-    right: 13px;
-    bottom: auto;
+    position: static;
+    align-self: center;
+    margin-left: auto;
     font-size: 18px;
     transform: none;
   }
@@ -1587,6 +1746,10 @@
     scale: 0.54;
   }
 
+  .chartFocused {
+    --focus-zoom: 1.08;
+  }
+
   .planetCaption strong {
     font-size: 10px;
   }
@@ -1602,13 +1765,13 @@
   }
 
   .dashboardTitleRow h2 {
-    font-size: 42px;
+    font-size: 34px;
   }
 
   .dashboardHeader,
   .dashboardSection,
   .dashboardFooter {
-    padding-left: 40px;
+    padding-left: 28px;
   }
 
   .taskControls {
@@ -1620,12 +1783,19 @@
 @media (prefers-reduced-motion: reduce) {
   .planetButton,
   .liveDot,
-  .networkActive {
+  .networkActive,
+  .satelliteVisible {
     animation: none;
   }
 
   .chart,
+  .planetButton,
   .planetVisual,
+  .planetCaption,
+  .planetHalo,
+  .networkLine,
+  .networkActive,
+  .satelliteNode,
   .satellite,
   .mapIntro,
   .workspace,
@@ -1636,6 +1806,8 @@
   }
 
   .orbitLine,
+  .systemOrbit,
+  .systemOrbitInner,
   .planetInFocus .planetHalo::before,
   .planetInFocus .planetHalo::after,
   .dashboardPlanet,
