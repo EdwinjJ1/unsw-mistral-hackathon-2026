@@ -47,6 +47,93 @@ export interface TeamDetail {
   dependencies: GraphEdge[];  // cross-team DEPENDS_ON edges
 }
 
+export type AssignmentReason =
+  | 'document_owner'
+  | 'existing_owner'
+  | 'department_workload';
+
+export interface PlanAssignment {
+  taskId: string;
+  title: string;
+  description?: string;
+  departmentId?: string;
+  department: string;
+  ownerId?: string;
+  owner: string;
+  discordUserId?: string;
+  status: Status;
+  dueDate?: string;
+  dependencyTaskIds: string[];
+  sourceRef?: SourceRef;
+  assignmentReason?: AssignmentReason;
+}
+
+export interface DeliveryPlan {
+  id: string;
+  generatedAt: string;
+  sourceName: string;
+  summary: string;
+  assignments: PlanAssignment[];
+  clarificationQuestions: string[];
+  bot: {
+    channel: 'discord';
+    ready: boolean;
+    instructions: string;
+  };
+}
+
+export interface IngestResult extends Delta {
+  plan: DeliveryPlan;
+  analysisMode: 'mistral' | 'fallback';
+}
+
+export type PlanDispatchStatus = 'sent' | 'unmatched' | 'failed';
+
+export interface PlanDispatchReceipt {
+  planId: string;
+  ownerKey: string;
+  ownerId?: string;
+  owner: string;
+  discordUserId?: string;
+  status: PlanDispatchStatus;
+  messageId?: string;
+  detail?: string;
+  updatedAt: string;
+}
+
+export type PlanHandoffStatus = 'pending' | PlanDispatchStatus;
+
+export interface PlanHandoff {
+  ownerKey: string;
+  ownerId?: string;
+  owner: string;
+  department: string;
+  discordUserId?: string;
+  assignments: PlanAssignment[];
+  message: string;
+  status: PlanHandoffStatus;
+  messageId?: string;
+  detail?: string;
+}
+
+export interface PlanHandoffManifest {
+  planId: string;
+  generatedAt: string;
+  sourceName: string;
+  summary: string;
+  handoffs: PlanHandoff[];
+  clarificationQuestions: string[];
+  counts: {
+    assignments: number;
+    recipients: number;
+    ready: number;
+    missingIdentity: number;
+    unassigned: number;
+    sent: number;
+    failed: number;
+  };
+}
+
 // --- id helpers ----------------------------------------------------------
 // IDs are deterministic slugs. No Math.random() — random ids silently
 // duplicate every node on every write.

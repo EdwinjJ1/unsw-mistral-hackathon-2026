@@ -36,6 +36,30 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_id);
 CREATE INDEX IF NOT EXISTS idx_edges_to   ON edges(to_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
+
+CREATE TABLE IF NOT EXISTS plan_deliveries (
+  id          TEXT PRIMARY KEY,
+  sourceName  TEXT NOT NULL,
+  generatedAt TEXT NOT NULL,
+  payload     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plan_deliveries_generated
+  ON plan_deliveries(generatedAt DESC);
+
+CREATE TABLE IF NOT EXISTS plan_dispatch_receipts (
+  planId        TEXT NOT NULL,
+  ownerKey      TEXT NOT NULL,
+  ownerId       TEXT,
+  owner         TEXT NOT NULL,
+  discordUserId TEXT,
+  status        TEXT NOT NULL CHECK (status IN ('sent', 'unmatched', 'failed')),
+  messageId     TEXT,
+  detail        TEXT,
+  updatedAt     TEXT NOT NULL,
+  PRIMARY KEY (planId, ownerKey)
+);
+CREATE INDEX IF NOT EXISTS idx_plan_dispatch_status
+  ON plan_dispatch_receipts(planId, status);
 `;
 
 type AthenaGlobal = typeof globalThis & {

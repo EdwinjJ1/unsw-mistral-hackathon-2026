@@ -17,7 +17,7 @@ import { GraphApi } from './api';
 import { handleCommand, registerGuildCommands } from './commands';
 import { loadConfig, redactToken } from './config';
 import { handleDmReply, handleGuildMention } from './flows';
-import { startScheduler } from './scheduler';
+import { startPlanDispatcher, startScheduler } from './scheduler';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -26,6 +26,7 @@ async function main(): Promise<void> {
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.DirectMessages,
       GatewayIntentBits.MessageContent,
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
       console.error('[ready] command registration failed:', reason);
     }
     startScheduler(client, api, config);
+    startPlanDispatcher(client, api, config);
   });
 
   client.on(Events.InteractionCreate, (interaction) => {

@@ -5,23 +5,12 @@
 import { ChannelType, type Message, type User } from 'discord.js';
 import type { SourceRef } from '../lib/types';
 import type { GraphApi } from './api';
+import { withFirstContactConsent } from './consent';
 import { composeDM, extractDelta, triageReply } from './mistral';
-
-const CONSENT_LINE =
-  "I'm Athena. I'll store task updates, blockers, and source message IDs so the project graph stays current.";
-
-// First-contact consent, tracked per Discord user for this process lifetime.
-const contacted = new Set<string>();
-
-function withConsent(userId: string, body: string): string {
-  if (contacted.has(userId)) return body;
-  contacted.add(userId);
-  return `${CONSENT_LINE}\n\n${body}`;
-}
 
 /** Hour-0 proof: DM `hello` with consent on first contact. Returns what was sent. */
 export async function sendHello(user: User): Promise<string> {
-  const body = withConsent(user.id, 'hello');
+  const body = withFirstContactConsent(user.id, 'hello');
   await user.send(body);
   console.log(`[out] hello -> user ${user.id}`);
   return body;
@@ -38,7 +27,7 @@ export async function sendCheckIn(user: User, api: GraphApi): Promise<string> {
     ? await composeDM(person, subgraph)
     : "Athena here. I couldn't find you in the project graph yet - reply with your name and what you're working on and I'll get you added.";
 
-  const message = withConsent(user.id, body);
+  const message = withFirstContactConsent(user.id, body);
   await user.send(message);
   console.log(`[out] check-in -> user ${user.id}${person ? '' : ' (not in graph)'}`);
   return message;

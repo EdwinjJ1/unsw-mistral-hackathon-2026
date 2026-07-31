@@ -1,0 +1,300 @@
+import type { Delta, Graph, GraphEdge, GraphNode, SourceRef } from './types';
+
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const dueInDays = (days: number) => {
+  const date = new Date(Date.now() + days * 86_400_000);
+  return date.toISOString().slice(0, 10);
+};
+
+const seed = (ref: string, quote: string): SourceRef => ({ kind: 'seed', ref, quote });
+const dm = (ref: string, quote: string): SourceRef => ({ kind: 'discord_dm', ref, quote });
+const doc = (ref: string, quote: string): SourceRef => ({ kind: 'document', ref, quote });
+
+export function createFixtureGraph(): Graph {
+  const nodes: GraphNode[] = [
+    {
+      id: 'team.engineering',
+      type: 'Team',
+      label: 'Engineering',
+      status: 'at_risk',
+      summary:
+        'The launch path is technically ready, but rollback ownership and the disputed authentication handoff leave release confidence exposed.',
+      updatedAt: minutesAgo(42),
+      sourceRef: doc('launch-plan.md#engineering', 'Engineering owns authentication, rollout and rollback readiness.'),
+    },
+    {
+      id: 'team.product',
+      type: 'Team',
+      label: 'Product',
+      status: 'in_progress',
+      summary: 'Scope is stable and launch messaging is moving through final review.',
+      updatedAt: minutesAgo(96),
+      sourceRef: seed('seed/product-launch.json', 'Product owns launch scope, messaging and success metrics.'),
+    },
+    {
+      id: 'team.design',
+      type: 'Team',
+      label: 'Design',
+      status: 'done',
+      summary: 'Core launch surfaces are approved; accessibility annotations have been handed to Engineering.',
+      updatedAt: minutesAgo(180),
+      sourceRef: doc('design-handoff.md#status', 'Launch UI approved with accessibility annotations attached.'),
+    },
+    {
+      id: 'team.legal-ops',
+      type: 'Team',
+      label: 'Legal / Ops',
+      status: 'blocked',
+      summary: 'Operations is waiting for authentication confirmation while Legal believes approvals are complete.',
+      updatedAt: minutesAgo(18),
+      sourceRef: dm('discord://dm/ops-1048', 'We are still waiting on auth before we can complete the cutover checklist.'),
+    },
+    {
+      id: 'person.priya-shah',
+      type: 'Person',
+      label: 'Priya Shah',
+      teamId: 'team.engineering',
+      status: 'in_progress',
+      summary: 'Release engineer',
+      discordUserId: 'priya',
+      updatedAt: minutesAgo(42),
+      sourceRef: seed('seed/people.json#priya', 'Priya owns release engineering and rollback readiness.'),
+    },
+    {
+      id: 'person.marcus-lee',
+      type: 'Person',
+      label: 'Marcus Lee',
+      teamId: 'team.engineering',
+      status: 'done',
+      summary: 'Backend engineer',
+      discordUserId: 'marcus',
+      updatedAt: minutesAgo(245),
+      sourceRef: seed('seed/people.json#marcus', 'Marcus owns the authentication service.'),
+    },
+    {
+      id: 'person.sofia-chen',
+      type: 'Person',
+      label: 'Sofia Chen',
+      teamId: 'team.product',
+      status: 'in_progress',
+      summary: 'Product lead',
+      discordUserId: 'sofia',
+      updatedAt: minutesAgo(96),
+      sourceRef: seed('seed/people.json#sofia', 'Sofia owns launch scope and success criteria.'),
+    },
+    {
+      id: 'person.noah-williams',
+      type: 'Person',
+      label: 'Noah Williams',
+      teamId: 'team.design',
+      status: 'done',
+      summary: 'Product designer',
+      discordUserId: 'noah',
+      updatedAt: minutesAgo(180),
+      sourceRef: seed('seed/people.json#noah', 'Noah owns the launch experience.'),
+    },
+    {
+      id: 'person.amara-okafor',
+      type: 'Person',
+      label: 'Amara Okafor',
+      teamId: 'team.legal-ops',
+      status: 'blocked',
+      summary: 'Operations lead',
+      discordUserId: 'amara',
+      updatedAt: minutesAgo(18),
+      sourceRef: seed('seed/people.json#amara', 'Amara owns launch operations and cutover.'),
+    },
+    {
+      id: 'task.rollback-runbook',
+      type: 'Task',
+      label: 'Rollback runbook',
+      teamId: 'team.engineering',
+      status: 'blocked',
+      ownerId: 'person.priya-shah',
+      dueDate: dueInDays(1),
+      summary: 'Document and rehearse the production rollback sequence.',
+      updatedAt: minutesAgo(42),
+      sourceRef: dm(
+        'discord://dm/priya-1042',
+        "Runbook's drafted, but Legal never confirmed the retention window — I'm blocked.",
+      ),
+    },
+    {
+      id: 'task.auth-service',
+      type: 'Task',
+      label: 'Authentication service',
+      teamId: 'team.engineering',
+      status: 'done',
+      ownerId: 'person.marcus-lee',
+      dueDate: dueInDays(-1),
+      summary: 'Complete the production authentication rollout.',
+      updatedAt: minutesAgo(245),
+      sourceRef: dm('discord://dm/marcus-1031', 'Auth is done — we shipped it Thursday.'),
+    },
+    {
+      id: 'task.load-test',
+      type: 'Task',
+      label: 'Launch load test',
+      teamId: 'team.engineering',
+      status: 'at_risk',
+      ownerId: 'person.priya-shah',
+      dueDate: dueInDays(0),
+      summary: 'Validate launch traffic headroom.',
+      updatedAt: minutesAgo(510),
+      sourceRef: doc('eng-standup.md#load-test', 'Load test is booked for Friday afternoon.'),
+    },
+    {
+      id: 'task.observability-dashboards',
+      type: 'Task',
+      label: 'Observability dashboards',
+      teamId: 'team.engineering',
+      status: 'not_started',
+      dueDate: dueInDays(2),
+      summary: 'Add the launch-specific service health panels.',
+      updatedAt: minutesAgo(1_680),
+      sourceRef: doc('launch-plan.md#observability', 'Create launch dashboards before go-live.'),
+    },
+    {
+      id: 'task.launch-messaging',
+      type: 'Task',
+      label: 'Launch messaging',
+      teamId: 'team.product',
+      status: 'in_progress',
+      ownerId: 'person.sofia-chen',
+      dueDate: dueInDays(1),
+      summary: 'Finalize the customer launch narrative.',
+      updatedAt: minutesAgo(96),
+      sourceRef: doc('launch-brief.md#messaging', 'Messaging needs one final proof before launch.'),
+    },
+    {
+      id: 'task.accessibility-handoff',
+      type: 'Task',
+      label: 'Accessibility handoff',
+      teamId: 'team.design',
+      status: 'done',
+      ownerId: 'person.noah-williams',
+      dueDate: dueInDays(-1),
+      summary: 'Deliver annotated accessible states.',
+      updatedAt: minutesAgo(180),
+      sourceRef: doc('design-handoff.md#a11y', 'Accessible states and focus order are approved.'),
+    },
+    {
+      id: 'blocker.ops-awaiting-auth',
+      type: 'Blocker',
+      label: 'Ops waiting on auth',
+      teamId: 'team.legal-ops',
+      status: 'blocked',
+      ownerId: 'person.amara-okafor',
+      summary: 'The cutover checklist cannot close until Operations receives authentication confirmation.',
+      updatedAt: minutesAgo(18),
+      sourceRef: dm('discord://dm/ops-1048', "Still waiting on auth — we're blocked on the cutover."),
+    },
+    {
+      id: 'blocker.retention-window',
+      type: 'Blocker',
+      label: 'Retention window unclear',
+      teamId: 'team.engineering',
+      status: 'blocked',
+      ownerId: 'person.priya-shah',
+      summary: 'The rollback plan needs a confirmed retention window from Legal.',
+      updatedAt: minutesAgo(42),
+      sourceRef: dm('discord://dm/priya-1042', 'Legal never confirmed whether rollback retention is 14 or 30 days.'),
+    },
+  ];
+
+  const edge = (
+    from: string,
+    type: GraphEdge['type'],
+    to: string,
+    updatedAt: string,
+    sourceRef: SourceRef,
+    note?: string,
+  ): GraphEdge => ({ id: `${from}--${type}--${to}`, from, to, type, updatedAt, sourceRef, note });
+
+  const edges: GraphEdge[] = [
+    edge('person.priya-shah', 'MEMBER_OF', 'team.engineering', minutesAgo(42), seed('seed/graph.json', 'Priya is on Engineering.')),
+    edge('person.marcus-lee', 'MEMBER_OF', 'team.engineering', minutesAgo(245), seed('seed/graph.json', 'Marcus is on Engineering.')),
+    edge('person.sofia-chen', 'MEMBER_OF', 'team.product', minutesAgo(96), seed('seed/graph.json', 'Sofia is on Product.')),
+    edge('person.noah-williams', 'MEMBER_OF', 'team.design', minutesAgo(180), seed('seed/graph.json', 'Noah is on Design.')),
+    edge('person.amara-okafor', 'MEMBER_OF', 'team.legal-ops', minutesAgo(18), seed('seed/graph.json', 'Amara is on Legal / Ops.')),
+    edge('person.priya-shah', 'OWNS', 'task.rollback-runbook', minutesAgo(42), dm('discord://dm/priya-1042', 'I own the rollback runbook.')),
+    edge('person.marcus-lee', 'OWNS', 'task.auth-service', minutesAgo(245), dm('discord://dm/marcus-1031', 'I own the authentication rollout.')),
+    edge('person.priya-shah', 'OWNS', 'task.load-test', minutesAgo(510), doc('eng-standup.md', 'Priya will run the launch load test.')),
+    edge('person.sofia-chen', 'OWNS', 'task.launch-messaging', minutesAgo(96), doc('launch-brief.md', 'Sofia owns launch messaging.')),
+    edge('person.noah-williams', 'OWNS', 'task.accessibility-handoff', minutesAgo(180), doc('design-handoff.md', 'Noah owns the accessibility handoff.')),
+    edge(
+      'task.rollback-runbook',
+      'DEPENDS_ON',
+      'team.legal-ops',
+      minutesAgo(42),
+      dm('discord://dm/priya-1042', 'Confirm the retention window with Legal before completing the runbook.'),
+      'Engineering is waiting on Legal / Ops for the retention window.',
+    ),
+    edge(
+      'blocker.ops-awaiting-auth',
+      'BLOCKS',
+      'team.legal-ops',
+      minutesAgo(18),
+      dm('discord://dm/ops-1048', 'Auth confirmation blocks cutover.'),
+    ),
+    edge(
+      'blocker.retention-window',
+      'BLOCKS',
+      'task.rollback-runbook',
+      minutesAgo(42),
+      dm('discord://dm/priya-1042', 'Retention window blocks the runbook.'),
+    ),
+    edge(
+      'task.auth-service',
+      'CONFLICTS_WITH',
+      'blocker.ops-awaiting-auth',
+      minutesAgo(8),
+      seed('athena://detection/conflict-18', 'Athena compared two related status claims.'),
+      'Engineering says authentication shipped; Operations is still blocked waiting for it.',
+    ),
+  ];
+
+  return { nodes, edges };
+}
+
+export function createMockIngestDelta(text: string): Delta {
+  const stamp = new Date().toISOString();
+  const excerpt = text.trim().replace(/\s+/g, ' ').slice(0, 180);
+  return {
+    upsertNodes: [
+      {
+        id: 'task.retention-window-review',
+        type: 'Task',
+        label: 'Retention window review',
+        teamId: 'team.legal-ops',
+        status: 'in_progress',
+        ownerId: 'person.amara-okafor',
+        dueDate: dueInDays(1),
+        summary: 'Confirm and publish the retention window used by the rollback plan.',
+        updatedAt: stamp,
+        sourceRef: doc('import://pasted-document', excerpt),
+      },
+      {
+        id: 'blocker.legal-signoff-pending',
+        type: 'Blocker',
+        label: 'Legal sign-off pending',
+        teamId: 'team.engineering',
+        status: 'blocked',
+        summary: 'Engineering is waiting for the retention decision.',
+        updatedAt: stamp,
+        sourceRef: doc('import://pasted-document', excerpt),
+      },
+    ],
+    upsertEdges: [
+      {
+        id: 'task.rollback-runbook--DEPENDS_ON--task.retention-window-review',
+        from: 'task.rollback-runbook',
+        to: 'task.retention-window-review',
+        type: 'DEPENDS_ON',
+        note: 'The rollback runbook needs the approved retention window.',
+        updatedAt: stamp,
+        sourceRef: doc('import://pasted-document', excerpt),
+      },
+    ],
+  };
+}

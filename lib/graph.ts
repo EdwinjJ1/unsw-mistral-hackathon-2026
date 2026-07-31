@@ -1,6 +1,15 @@
 import type Database from 'better-sqlite3';
 import { getDb } from './db';
-import type { Delta, Graph, GraphEdge, GraphNode, SourceRef, TeamDetail } from './types';
+import type {
+  DeliveryPlan,
+  Delta,
+  Graph,
+  GraphEdge,
+  GraphNode,
+  PlanDispatchReceipt,
+  SourceRef,
+  TeamDetail,
+} from './types';
 
 interface NodeRow {
   id: string;
@@ -254,4 +263,55 @@ export function getPersonSubgraph(discordUserId: string): Graph {
     (edge) => selected.has(edge.from) && selected.has(edge.to),
   );
   return { nodes, edges };
+}
+
+export function savePlan(plan: DeliveryPlan): void {
+  getDb().prepare(`
+    INSERT INTO plan_deliveries (id, sourceName, generatedAt, payload)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      sourceName = excluded.sourceName,
+      generatedAt = excluded.generatedAt,
+      payload = excluded.payload
+  `).run(plan.id, plan.sourceName, plan.generatedAt, JSON.stringify(plan));
+}
+
+export function getLatestPlan(): DeliveryPlan | null {
+  const row = getDb().prepare(
+    'SELECT payload FROM plan_deliveries ORDER BY generatedAt DESC LIMIT 1',
+  ).get() as { payload: string } | undefined;
+  return row ? JSON.parse(row.payload) as DeliveryPlan : null;
+}
+
+export function getPlanDispatchReceipts(planId: string): PlanDispatchReceipt[] {
+  return getDb().prepare(`
+    SELECT planId, ownerKey, ownerId, owner, discordUserId, status, messageId, detail, updatedAt
+    FROM plan_dispatch_receipts
+    WHERE planId = ?
+    ORDER BY ownerKey
+  `).all(planId) as PlanDispatchReceipt[];
+}
+
+export function savePlanDispatchReceipt(receipt: PlanDispatchReceipt): void {
+  getDb().prepare(`
+    INSERT INTO plan_dispatch_receipts (
+      planId, ownerKey, ownerId, owner, discordUserId, status, messageId, detail, updatedAt
+    ) VALUES (
+      @planId, @ownerKey, @ownerId, @owner, @discordUserId, @status, @messageId, @detail, @updatedAt
+    )
+    ON CONFLICT(planId, ownerKey) DO UPDATE SET
+      ownerId = excluded.ownerId,
+      owner = excluded.owner,
+      discordUserId = excluded.discordUserId,
+      status = excluded.status,
+      messageId = excluded.messageId,
+      detail = excluded.detail,
+      updatedAt = excluded.updatedAt
+  `).run({
+    ...receipt,
+    ownerId: receipt.ownerId ?? null,
+    discordUserId: receipt.discordUserId ?? null,
+    messageId: receipt.messageId ?? null,
+    detail: receipt.detail ?? null,
+  });
 }
