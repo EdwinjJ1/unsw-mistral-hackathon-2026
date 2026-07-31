@@ -1,4 +1,4 @@
-# Synapse
+# Athena
 
 **A second brain for your project — and a bot that actually chases people for updates.**
 
@@ -21,7 +21,7 @@ Jira and Notion solve storage. They are **passive**: they wait for humans to upd
 
 **A bot pays no social cost.** It can ask the same person the same question five times without resentment, cross team boundaries without politics, and do it at full coverage in real time.
 
-Synapse is two halves of one loop:
+Athena is two halves of one loop:
 
 ### 🧠 The brain
 
@@ -45,14 +45,24 @@ A Discord bot that treats the graph as the source of truth and acts as its hands
 
 The graph updates → the next round of DMs reflects the new state. The loop closes.
 
+## Why "Athena"
+
+In the *Odyssey*, Athena doesn't sit in a temple waiting to be consulted. She **shows up**. She appears to Telemachus disguised as an old family friend named **Mentor**, tells him what he should be doing and who he needs to go talk to, and pushes him to actually do it. The English word *mentor* comes from that disguise.
+
+She is also the goddess of ***strategic*** war — as opposed to Ares and brute force. **She wins by seeing the whole board**, which is the view no individual player has. That's the graph.
+
+Both halves of the product, in one name.
+
+> **Pitch line:** *"Athena appeared to heroes disguised as Mentor and told them who to go talk to. We built her as a Discord bot."*
+
 ## 🔍 The hidden signal
 
-Because every team's answers land in **one** graph, Synapse sees what no individual can:
+Because every team's answers land in **one** graph, Athena sees what no individual can:
 
 > **Engineering:** "auth is done, shipped Thursday."
 > **Ops:** "still waiting on auth, we're blocked."
 
-Both people were telling the truth as they understood it. Neither contradiction would surface in a standup. Synapse flags it, shows both sources, and asks both owners one clarifying question.
+Both people were telling the truth as they understood it. Neither contradiction would surface in a standup. Athena flags it, shows both sources, and asks both owners one clarifying question.
 
 *This is the [Hidden Signals Award](#judging-criteria) hook.*
 
@@ -92,7 +102,7 @@ One complete loop, live:
 3. They reply in Discord: *"runbook's done, but legal never got back to me — blocked."*
 4. Mistral extracts the delta → task turns green, a `Blocker` node appears, edge to Legal.
 5. **The graph on screen changes in front of the judges.**
-6. Contradiction fires: Legal said "all approvals cleared." Synapse flags it with both sources.
+6. Contradiction fires: Legal said "all approvals cleared." Athena flags it with both sources.
 
 ## Repository layout
 

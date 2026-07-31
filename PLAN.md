@@ -1,6 +1,6 @@
-# PLAN — Synapse
+# PLAN — Athena
 
-> **Working name:** *Synapse*. Change it if someone has a better one, but decide in the first 15 minutes and stop debating it.
+> **Name: *Athena*.** Decided — stop debating it. In the *Odyssey* she doesn't wait to be consulted: she appears to Telemachus disguised as an old friend named **Mentor** and tells him what to do and who to go talk to. (That disguise is where the English word *mentor* comes from.) She is also the goddess of *strategic* war, as opposed to Ares and brute force — **she wins by seeing the whole board.** Both halves of the product, in one name. Use the Mentor line in the pitch.
 >
 > **Time budget:** it is Fri 31 Jul. Submission is **Sat 1 Aug 12:00**. That is roughly **12–14 real working hours** after sleep, food, and setup. Every decision below is made under that constraint.
 
@@ -8,7 +8,7 @@
 
 ## 1. The idea in one sentence
 
-**Synapse is a second brain for a project — a living knowledge graph of teams, people, and tasks — with a Discord bot that reads the graph, DMs each person exactly what they own and who they need to talk to, chases them for updates, and writes their replies straight back into the graph.**
+**Athena is a second brain for a project — a living knowledge graph of teams, people, and tasks — with a Discord bot that reads the graph, DMs each person exactly what they own and who they need to talk to, chases them for updates, and writes their replies straight back into the graph.**
 
 ## 2. Persona and pain
 
@@ -25,7 +25,7 @@
 
 > Every team already knows they should chase status. They do not, because chasing has a **social cost**, not a technical one. Existing tools (Jira, Notion, standups) fix the *storage* problem and ignore the *asking* problem — they are passive: they wait for humans to update them, which is exactly the step that fails.
 >
-> A bot pays no social cost. It can ask the same person the same question five times without resentment, ask across team boundaries without politics, and it does it at 100% coverage in real time. **Synapse makes the graph active: it goes out and gets the information instead of waiting for it.**
+> A bot pays no social cost. It can ask the same person the same question five times without resentment, ask across team boundaries without politics, and it does it at 100% coverage in real time. **Athena makes the graph active: it goes out and gets the information instead of waiting for it.**
 
 ## 3. The product
 
@@ -59,12 +59,12 @@ The graph is the source of truth. The bot is its hands.
 
 ### 3.3 The Hidden Signal (award hook — build this, it is cheap and it wins points)
 
-Because every team's answers land in one graph, Synapse sees what no single person sees: **contradictions between what two teams believe.**
+Because every team's answers land in one graph, Athena sees what no single person sees: **contradictions between what two teams believe.**
 
 > Engineering DMs "auth is done, shipped Thursday."
 > Ops DMs "still waiting on auth, we're blocked."
 >
-> Both were true to the person who said them. Neither would have been discovered in a standup. Synapse flags the contradiction, shows both sources, and DMs both owners with one clarifying question.
+> Both were true to the person who said them. Neither would have been discovered in a standup. Athena flags the contradiction, shows both sources, and DMs both owners with one clarifying question.
 
 Implement as: on every graph write, run a conflict check against related nodes. One extra Mistral call. Huge narrative payoff.
 
@@ -122,7 +122,7 @@ Confirm exact model IDs against Mistral's current docs before coding — do not 
 3. That person (a teammate, live on stage) replies in Discord: *"runbook's done, but legal never got back to me — blocked."*
 4. Mistral extracts the delta → task goes green, a new `Blocker` node appears, edge to Legal.
 5. **The graph on screen visibly changes.**
-6. Contradiction fires: Legal's earlier reply said "all approvals cleared." Synapse flags it and shows both sources.
+6. Contradiction fires: Legal's earlier reply said "all approvals cleared." Athena flags it and shows both sources.
 
 If only this works, the project is submittable. Everything else is decoration.
 
