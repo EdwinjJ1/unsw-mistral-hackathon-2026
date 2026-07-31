@@ -11,7 +11,9 @@
     "start": "next start",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "bot:dev": "tsx --env-file-if-exists=.env bot/index.ts",
-    "test": "tsx --test lib/*.test.ts bot/*.test.ts",
+    "test": "npm run test:core && npm run test:mistral",
+    "test:core": "tsx --test lib/*.test.ts bot/dispatch.test.ts",
+    "test:mistral": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -36,6 +38,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "tsx": "4.23.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
   }
 }
