@@ -60,8 +60,9 @@ should see `Athena online as <name>` and the bot appears Online in Discord.
 - `/athena-hello [user]`: hour-0 proof. DMs `hello` with a one-time consent line.
 - `/athena-status [user]`: composes and sends a check-in DM from the target's live subgraph.
 
-Reply to the DM and the bot terminal logs the Discord user id, message id, and
-content, then triages the reply and, unless it is noise, posts a `Delta`. Every
+Reply to the DM and the bot terminal logs only the Discord user id, message id,
+and content length, then triages the reply and, unless it is noise, posts a
+`Delta`. Every
 write carries `{ kind: 'discord_dm', ref: message.id, quote: message.content }`.
 
 In server channels, Athena only replies when explicitly mentioned. This keeps

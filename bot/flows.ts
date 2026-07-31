@@ -44,12 +44,16 @@ export async function sendCheckIn(user: User, api: GraphApi): Promise<string> {
   return message;
 }
 
-/** Inbound DM: log it, triage, extract a Delta, post it. */
+/** Inbound DM: log metadata, triage, extract a Delta, post it. */
 export async function handleDmReply(message: Message, api: GraphApi): Promise<void> {
   const { id: messageId, content } = message;
   const userId = message.author.id;
 
-  console.log('[in] DM reply', { discordUserId: userId, messageId, content });
+  console.log('[in] DM reply', {
+    discordUserId: userId,
+    messageId,
+    contentLength: content.length,
+  });
 
   const triage = await triageReply(content);
   console.log(`[in] triage -> ${triage}`);
@@ -92,7 +96,7 @@ export async function handleGuildMention(message: Message): Promise<void> {
     channelId: message.channelId,
     discordUserId: message.author.id,
     messageId: message.id,
-    content: message.content,
+    contentLength: message.content.length,
   });
 
   await message.reply(
