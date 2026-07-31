@@ -127,7 +127,7 @@ Six people, six tracks. Put your name in and claim one. Full scope per track in 
 | _TBD_ | **C — Web shell** | Pages, routing, team detail panel, import page, styling |
 | _TBD_ | **D — Discord bot** | Bot setup, DM send/receive, check-in scheduler |
 | _TBD_ | **E — Mistral lib** | The five calls, prompts, JSON schemas, fallbacks |
-| _TBD_ | **F — Demo & pitch** | Seed data, demo script, deck, backup recording, integration fixing |
+| _TBD_ | **F — Signals** | Seed dataset, then the ranked list of what Athena noticed on its own |
 
 **Everyone starts against fake data. Nobody waits for anybody.** Integrate at the halfway mark, not at the end.
 
