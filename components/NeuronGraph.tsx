@@ -24,7 +24,7 @@ const ForceGraph2D = dynamic(
   { ssr: false },
 );
 
-const BACKGROUND = '#0A0A0A';
+const BACKGROUND = '#04060B';
 const NODE_REL_SIZE = 4;
 const TAU = Math.PI * 2;
 const MONO_FONT = 'ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -36,25 +36,25 @@ const HOT_WINDOW_MS = 30_000;
 
 type Rgb = readonly [number, number, number];
 
-// Near-monochrome instrument palette. Colour is reserved for alarm — the only
-// saturated value anywhere in this file is ALARM (#E5484D).
+// Deep-space instrument palette — cool blue-white glow, colour reserved for
+// alarm (the CONFLICTS_WITH edge and anything it touches).
 const RGB: Record<string, Rgb> = {
-  team: [250, 250, 250], // #FAFAFA
-  teamQuiet: [196, 196, 202], // #C4C4CA
-  task: [161, 161, 170], // #A1A1AA
-  person: [107, 107, 112], // #6B6B70
-  decision: [139, 139, 147], // #8B8B93
-  alarm: [229, 72, 77], // #E5484D
-  label: [212, 212, 216], // #D4D4D8
-  edge: [255, 255, 255],
+  team: [234, 241, 255], // bright blue-white
+  teamQuiet: [120, 135, 165], // dim cool grey-blue
+  task: [150, 165, 195],
+  person: [95, 106, 130],
+  decision: [112, 124, 150],
+  alarm: [255, 61, 61],
+  label: [200, 212, 232],
+  edge: [150, 170, 210],
 };
 
 const TASK_STATUS_RGB: Record<string, Rgb> = {
-  not_started: [82, 82, 90], // #52525A
-  in_progress: [161, 161, 170], // #A1A1AA
-  blocked: [250, 250, 250], // #FAFAFA
-  at_risk: [250, 250, 250], // #FAFAFA
-  done: [107, 107, 112], // #6B6B70
+  not_started: [70, 78, 96],
+  in_progress: [150, 165, 195],
+  blocked: [234, 241, 255],
+  at_risk: [234, 241, 255],
+  done: [95, 106, 130],
 };
 
 const rgba = ([r, g, b]: Rgb, alpha: number) =>
@@ -65,6 +65,14 @@ const millis = (iso: string | undefined): number => {
   const t = Date.parse(iso);
   return Number.isFinite(t) ? t : 0;
 };
+
+/** Deterministic curvature per link so the wires bow like organic dendrites
+ * instead of ruling straight lines — purely cosmetic, has no effect on layout. */
+function linkCurve(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return ((h % 1000) / 1000) * 0.5 - 0.25;
+}
 
 /** Team nodes are the big neurons; they grow with the tasks hanging off them. */
 function nodeVal(node: RFNode, graph: RenderGraph): number {
@@ -154,10 +162,10 @@ function nodeRgb(node: RFNode, graph: RenderGraph): Rgb {
 
 const LINK_STYLE: Record<string, { rgb: Rgb; alpha: number; width: number }> = {
   CONFLICTS_WITH: { rgb: RGB.alarm, alpha: 0.9, width: 1.6 },
-  DEPENDS_ON: { rgb: RGB.edge, alpha: 0.16, width: 0.75 },
-  BLOCKS: { rgb: RGB.edge, alpha: 0.16, width: 0.75 },
+  DEPENDS_ON: { rgb: RGB.edge, alpha: 0.22, width: 0.75 },
+  BLOCKS: { rgb: RGB.edge, alpha: 0.22, width: 0.75 },
 };
-const DEFAULT_LINK_STYLE = { rgb: RGB.edge, alpha: 0.07, width: 0.5 };
+const DEFAULT_LINK_STYLE = { rgb: RGB.edge, alpha: 0.12, width: 0.6 };
 
 const linkStyle = (link: RFLink) => LINK_STYLE[link.type] ?? DEFAULT_LINK_STYLE;
 
@@ -313,32 +321,38 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
       const team = node.type === 'Team' ? teamHealth(node.id, graph) : null;
       const alarmed = team ? team.alarm : nodeAlarm(node, graph);
       const strong = team ? team.strong : false;
+      const glowRgb = alarmed ? RGB.alarm : rgb;
 
-      // Flat two-layer glow instead of a gradient — cheaper, and reads as an
-      // instrument light rather than a soft bloom.
-      if (alarmed) {
-        ctx.beginPath();
-        ctx.arc(x, y, radius * 3.2, 0, TAU);
-        ctx.fillStyle = rgba(RGB.alarm, 0.1 * dim);
-        ctx.fill();
-      } else if (strong) {
-        ctx.beginPath();
-        ctx.arc(x, y, radius * 3, 0, TAU);
-        ctx.fillStyle = rgba([255, 255, 255], 0.06 * dim);
-        ctx.fill();
-      }
+      // Soft outer bloom, like a diffraction halo around a distant light.
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 4.5, 0, TAU);
+      ctx.fillStyle = rgba(glowRgb, (alarmed ? 0.1 : 0.045) * dim);
+      ctx.fill();
 
       ctx.beginPath();
       ctx.arc(x, y, radius * 2.6, 0, TAU);
-      ctx.fillStyle = rgba(rgb, 0.05 * dim);
+      ctx.fillStyle = rgba(glowRgb, (alarmed ? 0.16 : 0.08) * dim);
       ctx.fill();
 
+      // Thin concentric diffraction rings.
+      ctx.lineWidth = 0.75 / scale;
+      ctx.strokeStyle = rgba(glowRgb, 0.22 * dim);
       ctx.beginPath();
-      ctx.arc(x, y, radius * 1.7, 0, TAU);
-      ctx.fillStyle = rgba(rgb, 0.08 * dim);
-      ctx.fill();
+      ctx.arc(x, y, radius * 2.1, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = rgba(glowRgb, 0.32 * dim);
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 1.5, 0, TAU);
+      ctx.stroke();
 
-      // Solid core.
+      if (strong) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 3.2, 0, TAU);
+        ctx.fillStyle = rgba(RGB.team, 0.06 * dim);
+        ctx.fill();
+      }
+
+      // Solid bright core.
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, TAU);
       ctx.fillStyle = rgba(rgb, dim);
@@ -359,7 +373,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
         const fade = (1 - phase) * (1 - age / PULSE_WINDOW_MS);
         ctx.beginPath();
         ctx.arc(x, y, radius * 1.4 + phase * radius * 2.6, 0, TAU);
-        ctx.strokeStyle = rgba(alarmed ? RGB.alarm : rgb, 0.85 * fade * dim);
+        ctx.strokeStyle = rgba(glowRgb, 0.85 * fade * dim);
         ctx.lineWidth = 2 / scale;
         ctx.stroke();
       }
@@ -390,6 +404,8 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
 
   const linkWidth = useCallback((link: RFLink) => linkStyle(link).width, []);
 
+  const linkCurvature = useCallback((link: RFLink) => linkCurve(link.id), []);
+
   const linkParticles = useCallback(
     (link: RFLink) => {
       if (link.type === 'CONFLICTS_WITH') return 4;
@@ -407,7 +423,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
     if (link.type === 'CONFLICTS_WITH') return rgba(RGB.alarm, 0.95);
     return isHotLink(link, Date.now())
       ? 'rgba(255,255,255,0.95)'
-      : 'rgba(255,255,255,0.55)';
+      : rgba(RGB.edge, 0.6);
   }, []);
 
   const handleNodeHover = useCallback((node: RFNode | null) => {
@@ -481,7 +497,8 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
         position: 'relative',
         width: '100%',
         height: '100%',
-        background: BACKGROUND,
+        background:
+          'radial-gradient(ellipse at 50% 15%, #0b1220 0%, #04060B 55%, #030408 100%)',
       }}
     >
       {size.width > 0 && (
@@ -497,6 +514,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
           nodeCanvasObject={paintNode}
           linkColor={linkColor}
           linkWidth={linkWidth}
+          linkCurvature={linkCurvature}
           linkDirectionalParticles={linkParticles}
           linkDirectionalParticleSpeed={0.005}
           linkDirectionalParticleWidth={linkParticleWidth}
@@ -578,7 +596,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
               width: 7,
               height: 7,
               borderRadius: '50%',
-              background: '#FAFAFA',
+              background: '#EAF1FF',
             }}
           />
           Team
@@ -589,13 +607,13 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
               width: 7,
               height: 7,
               borderRadius: '50%',
-              background: '#A1A1AA',
+              background: '#96A3C3',
             }}
           />
           Task
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 12, height: 1.6, background: '#E5484D' }} />
+          <span style={{ width: 12, height: 1.6, background: '#FF3D3D' }} />
           Conflict
         </span>
       </div>
@@ -610,13 +628,13 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
             maxWidth: 280,
             padding: '8px 12px',
             borderRadius: 4,
-            background: 'rgba(229,72,77,0.06)',
-            border: '1px solid rgba(229,72,77,0.28)',
+            background: 'rgba(255,61,61,0.06)',
+            border: '1px solid rgba(255,61,61,0.28)',
             font: `11px ${MONO_FONT}`,
             pointerEvents: 'none',
           }}
         >
-          <div style={{ color: '#E5484D' }}>
+          <div style={{ color: '#FF3D3D' }}>
             {conflictLinks.length} unresolved conflict{conflictLinks.length === 1 ? '' : 's'}
           </div>
           {conflictLinks[0].note && (
@@ -635,12 +653,12 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
             padding: '10px 12px',
             borderRadius: 8,
             border: '1px solid rgba(255,255,255,0.1)',
-            background: 'rgba(10,10,10,0.94)',
+            background: 'rgba(4,6,11,0.94)',
             font: `11px ${MONO_FONT}`,
             pointerEvents: 'none',
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4, color: '#FAFAFA' }}>
+          <div style={{ fontWeight: 600, marginBottom: 4, color: '#EAF1FF' }}>
             {card.node.label}
           </div>
           <div style={{ color: '#71717A' }}>{card.node.type}</div>
