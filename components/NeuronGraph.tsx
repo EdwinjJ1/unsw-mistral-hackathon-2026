@@ -196,7 +196,7 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
     return () => ro.disconnect();
   }, []);
 
-  const { graph } = useGraphPoll();
+  const { graph, stale } = useGraphPoll();
   // Canvas accessors read the graph through a ref so their identity stays
   // stable across polls; a new paint closure would force a needless re-render.
   const graphRef = useRef<RenderGraph>(graph);
@@ -436,6 +436,25 @@ export default function NeuronGraph({ onSelect, selectedId }: NeuronGraphProps) 
           // repainting even when the physics engine has gone quiet.
           autoPauseRedraw={false}
         />
+      )}
+
+      {stale && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            padding: '5px 10px',
+            borderRadius: 999,
+            border: '1px solid rgba(245,158,11,0.45)',
+            background: 'rgba(245,158,11,0.12)',
+            color: '#fbbf24',
+            font: '11px ui-sans-serif, system-ui, sans-serif',
+            pointerEvents: 'none',
+          }}
+        >
+          offline — fixture data
+        </div>
       )}
 
       {card && (
