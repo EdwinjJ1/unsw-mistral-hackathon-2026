@@ -10,11 +10,13 @@
     "build": "next build",
     "start": "next start",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
+    "bot:dev": "tsx --env-file-if-exists=.env bot/index.ts",
     "test": "tsx --test lib/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "better-sqlite3": "12.11.1",
+    "discord.js": "14.27.0",
     "next": "15.5.22",
     "react": "19.2.8",
     "react-dom": "19.2.8"
