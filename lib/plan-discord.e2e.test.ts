@@ -171,6 +171,7 @@ describe('AI plan -> Discord -> task progress', () => {
       id: 'discord-reply-guts-1',
       content: reply,
       author: { id: GUTS_DISCORD_ID },
+      async react() {},
       async reply(message: string) {
         botReplies.push(message);
       },

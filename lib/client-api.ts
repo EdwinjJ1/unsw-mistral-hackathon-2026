@@ -44,13 +44,16 @@ export async function ingestText(text: string): Promise<IngestResult> {
   return response.json() as Promise<IngestResult>;
 }
 
-export async function ingestFiles(files: Array<{ file: File; path: string }>): Promise<IngestResult> {
+export async function ingestFiles(
+  files: Array<{ file: File; path: string }>,
+  { replace = true }: { replace?: boolean } = {},
+): Promise<IngestResult> {
   const body = new FormData();
   for (const item of files) {
     body.append('files', item.file);
     body.append('paths', item.path);
   }
-  body.append('replace', 'true');
+  body.append('replace', String(replace));
   const response = await fetchWithTimeout('/api/ingest/files', { method: 'POST', body });
   if (!response.ok) throw new Error(await parseError(response));
   return response.json() as Promise<IngestResult>;

@@ -1,0 +1,16 @@
+node_modules
+.next
+.next-prod
+.npm-cache
+.git
+*.db
+*.db-wal
+*.db-shm
+!data/athena-seed.db
+*.tsbuildinfo
+demo-atl
+demo-corpus
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -44,6 +44,11 @@ export async function handleDmReply(message: Message, api: GraphApi): Promise<vo
     contentLength: content.length,
   });
 
+  // Acknowledge receipt immediately so the sender sees the bot picked it up.
+  await message.react('👍').catch((error) => {
+    console.error('[in] could not react 👍:', error instanceof Error ? error.message : error);
+  });
+
   const triage = await triageReply(content);
   console.log(`[in] triage -> ${triage}`);
   if (triage === 'noise') {

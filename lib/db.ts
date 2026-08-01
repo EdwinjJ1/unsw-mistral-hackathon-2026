@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS plan_dispatch_receipts (
 );
 CREATE INDEX IF NOT EXISTS idx_plan_dispatch_status
   ON plan_dispatch_receipts(planId, status);
+
+CREATE TABLE IF NOT EXISTS plan_followups (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  planId      TEXT NOT NULL,
+  teamId      TEXT,
+  teamLabel   TEXT,
+  ownerKeys   TEXT NOT NULL,  -- JSON array of handoff ownerKeys to (re)dispatch
+  requestedAt TEXT NOT NULL,
+  consumedAt  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_plan_followups_pending
+  ON plan_followups(consumedAt, id);
 `;
 
 type AthenaGlobal = typeof globalThis & {
@@ -67,8 +79,23 @@ type AthenaGlobal = typeof globalThis & {
 };
 
 export function databasePath(): string {
+  // On Vercel the deployment bundle is read-only; open a copy under /tmp
+  // (seeded from data/athena-seed.db) so routes can still write. Data there
+  // is per-instance and resets on cold start — demo-grade persistence only.
+  if (process.env.VERCEL) {
+    return '/tmp/athena.db';
+  }
   const file = process.env.DATABASE_PATH || './athena.db';
   return path.resolve(process.cwd(), file);
+}
+
+function seedDatabaseFile(target: string): void {
+  if (!process.env.VERCEL) return;
+  if (fs.existsSync(target)) return;
+  const seed = path.resolve(process.cwd(), 'data/athena-seed.db');
+  if (fs.existsSync(seed)) {
+    fs.copyFileSync(seed, target);
+  }
 }
 
 export function getDb(): Database.Database {
@@ -85,6 +112,7 @@ export function getDb(): Database.Database {
   }
 
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  seedDatabaseFile(file);
   const db = new Database(file);
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');

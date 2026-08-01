@@ -1,0 +1,10 @@
+# Railway runs only the Discord bot; the web app lives on Vercel.
+# The bot is stateless and talks to the web API via API_BASE_URL.
+[build]
+builder = "NIXPACKS"
+buildCommand = "echo 'bot service: no build step'"
+
+[deploy]
+startCommand = "npm run bot:start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

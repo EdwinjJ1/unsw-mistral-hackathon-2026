@@ -28,6 +28,14 @@ export async function POST(request: Request) {
         })),
     );
     const { documents, errors } = await extractDocuments(inputs);
+    if (!documents.length) {
+      return NextResponse.json({
+        error: errors.length
+          ? `No readable documents were found. ${errors.slice(0, 3).join(' | ')}`
+          : 'No readable documents were found in the selected files.',
+        parseWarnings: errors,
+      }, { status: 422 });
+    }
     const result = await ingestDocumentSet({
       documents,
       sourceName: `uploaded dataset (${documents.length} documents)`,

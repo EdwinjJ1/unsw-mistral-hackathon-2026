@@ -35,6 +35,8 @@ export interface PlanDispatchSummary {
 export interface PlanDispatchOptions {
   /** Manual dispatch may retry a previous unmatched/failed receipt; polling should not. */
   retryPreviousFailures?: boolean;
+  /** Restrict dispatch to these handoff ownerKeys (used by follow-up requests). */
+  ownerKeys?: string[];
 }
 
 const exact = (value: string) => value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
@@ -97,7 +99,12 @@ export async function dispatchPlanHandoffs(
     skipped: 0,
   };
 
+  const ownerFilter = options.ownerKeys ? new Set(options.ownerKeys) : null;
   for (const handoff of manifest.handoffs) {
+    if (ownerFilter && !ownerFilter.has(handoff.ownerKey)) {
+      summary.skipped += 1;
+      continue;
+    }
     if (
       handoff.status === 'sent'
       || (handoff.status !== 'pending' && !options.retryPreviousFailures)

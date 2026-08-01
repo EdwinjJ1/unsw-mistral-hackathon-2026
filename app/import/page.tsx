@@ -18,6 +18,62 @@ const EXAMPLES = {
 
 interface SelectedDocument { file: File; path: string }
 
+interface DirectoryFileHandle {
+  kind: 'file';
+  name: string;
+  getFile(): Promise<File>;
+}
+
+interface DirectoryFolderHandle {
+  kind: 'directory';
+  name: string;
+  values(): AsyncIterableIterator<DirectoryFileHandle | DirectoryFolderHandle>;
+}
+
+interface DroppedEntry {
+  isFile: boolean;
+  isDirectory: boolean;
+  name: string;
+  file?(success: (file: File) => void, failure?: (error: DOMException) => void): void;
+  createReader?(): { readEntries(success: (entries: DroppedEntry[]) => void, failure?: (error: DOMException) => void): void };
+}
+
+async function collectDirectory(
+  directory: DirectoryFolderHandle,
+  prefix = directory.name,
+): Promise<SelectedDocument[]> {
+  const collected: SelectedDocument[] = [];
+  for await (const entry of directory.values()) {
+    const path = `${prefix}/${entry.name}`;
+    if (entry.kind === 'file') collected.push({ file: await entry.getFile(), path });
+    else collected.push(...await collectDirectory(entry, path));
+  }
+  return collected;
+}
+
+async function collectDroppedEntry(entry: DroppedEntry, prefix = ''): Promise<SelectedDocument[]> {
+  const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+  if (entry.isFile && entry.file) {
+    const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
+    return [{ file, path }];
+  }
+  if (!entry.isDirectory || !entry.createReader) return [];
+  const reader = entry.createReader();
+  const children: DroppedEntry[] = [];
+  while (true) {
+    const batch = await new Promise<DroppedEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+    if (!batch.length) break;
+    children.push(...batch);
+  }
+  return (await Promise.all(children.map((child) => collectDroppedEntry(child, path)))).flat();
+}
+
+const formatBytes = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 const SCAN_STAGES = [
   ['Reading source material', 'Fetching and parsing every supported document.'],
   ['Mapping the organisation', 'Extracting departments, people and working relationships.'],
@@ -66,6 +122,12 @@ function ResultCard({ result }: { result: IngestResult }) {
           {result.plan.clarificationQuestions.map((question) => <p key={question}>{question}</p>)}
         </div>
       )}
+      {result.parseWarnings && result.parseWarnings.length > 0 && (
+        <div className={styles.parseWarnings}>
+          <span>FILES THAT COULD NOT BE READ</span>
+          {result.parseWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+        </div>
+      )}
       <div className={styles.resultActions}>
         <Link href="/">Open constellation →</Link>
         <Link href="/plan">Review Discord handoff →</Link>
@@ -112,21 +174,34 @@ export default function ImportPage() {
     return () => window.clearTimeout(timer);
   }, [result]);
 
-  const selectDocuments = async (files: File[]) => {
-    const selected = files.flatMap((file) => {
+  const selectDocumentEntries = async (entries: SelectedDocument[]) => {
+    const unsupported = entries.filter(({ file }) => {
       const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-      if (!SUPPORTED.includes(extension)) return [];
-      const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
-      return [{ file, path: relative || file.name }];
+      return !SUPPORTED.includes(extension);
+    });
+    const selected = entries.filter(({ file }) => {
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      return SUPPORTED.includes(extension);
     });
     if (!selected.length) {
       setError('No supported documents found. Add text, PDF, Word, PowerPoint or Excel files.');
       return;
     }
+    if (selected.length > 50) {
+      setError('A scan can contain at most 50 documents. Remove some files and try again.');
+      return;
+    }
+    const totalBytes = selected.reduce((sum, item) => sum + item.file.size, 0);
+    if (totalBytes > 30 * 1024 * 1024) {
+      setError(`This document set is ${formatBytes(totalBytes)}. The maximum upload is 30 MB.`);
+      return;
+    }
     setDocuments(selected);
     setDatasetUrl('');
     setResult(null);
-    setError(null);
+    setError(unsupported.length
+      ? `${unsupported.length} unsupported file${unsupported.length === 1 ? ' was' : 's were'} skipped: ${unsupported.slice(0, 3).map(({ path }) => path).join(', ')}`
+      : null);
     if (selected.length === 1 && /\.(txt|md|csv|json|ya?ml|xml|html)$/i.test(selected[0].file.name)) {
       setText(await selected[0].file.text());
       setSourceName(selected[0].path);
@@ -134,6 +209,49 @@ export default function ImportPage() {
       setText('');
       setSourceName(`dataset-${selected.length}-documents`);
     }
+  };
+
+  const selectDocuments = (files: File[]) => selectDocumentEntries(files.map((file) => {
+    const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+    return { file, path: relative || file.name };
+  }));
+
+  const chooseFolder = async () => {
+    const pickerWindow = window as Window & {
+      showDirectoryPicker?: () => Promise<DirectoryFolderHandle>;
+    };
+    if (!pickerWindow.showDirectoryPicker) {
+      folderInput.current?.click();
+      return;
+    }
+    try {
+      const directory = await pickerWindow.showDirectoryPicker();
+      await selectDocumentEntries(await collectDirectory(directory));
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') return;
+      setError(cause instanceof Error ? cause.message : 'Athena could not read that folder.');
+    }
+  };
+
+  const acceptDrop = async (dataTransfer: DataTransfer) => {
+    const droppedEntries = Array.from(dataTransfer.items).flatMap((item) => {
+      const entry = (item as DataTransferItem & { webkitGetAsEntry?: () => DroppedEntry | null }).webkitGetAsEntry?.();
+      return entry ? [entry] : [];
+    });
+    if (droppedEntries.length) {
+      const entries = (await Promise.all(droppedEntries.map((entry) => collectDroppedEntry(entry)))).flat();
+      await selectDocumentEntries(entries);
+      return;
+    }
+    await selectDocuments(Array.from(dataTransfer.files));
+  };
+
+  const removeDocument = (path: string) => {
+    const remaining = documents.filter((item) => item.path !== path);
+    setDocuments(remaining);
+    if (!remaining.length) setText('');
+    setResult(null);
+    setError(null);
   };
 
   const submit = async (event: FormEvent) => {
@@ -201,7 +319,7 @@ export default function ImportPage() {
           onDragOver={(event) => event.preventDefault()}
           onDragLeave={() => setDragging(false)}
           onDrop={(event: DragEvent<HTMLFormElement>) => {
-            event.preventDefault(); setDragging(false); void selectDocuments(Array.from(event.dataTransfer.files));
+            event.preventDefault(); setDragging(false); void acceptDrop(event.dataTransfer);
           }}
         >
           <div className={styles.formHead}>
@@ -242,11 +360,33 @@ export default function ImportPage() {
 
           <div className={styles.uploadRow}>
             <button type="button" onClick={() => fileInput.current?.click()}>↑ Add documents</button>
-            <button type="button" onClick={() => folderInput.current?.click()}>↑ Add folder</button>
+            <button type="button" onClick={() => void chooseFolder()}>↑ Add folder</button>
             <span>{SUPPORTED.slice(0, 10).join(' · ').toUpperCase()}</span>
             <input ref={fileInput} type="file" accept={SUPPORTED.map((extension) => `.${extension}`).join(',')} multiple hidden onChange={(event) => void selectDocuments(Array.from(event.target.files ?? []))} />
             <input ref={folderInput} {...directoryInputProps} />
           </div>
+
+          {documents.length > 0 && (
+            <section className={styles.selectedDocuments} aria-label="Selected documents">
+              <header>
+                <div><span>DOCUMENT MANIFEST</span><strong>{documents.length} ready to scan</strong></div>
+                <small>{formatBytes(documents.reduce((sum, item) => sum + item.file.size, 0))} total</small>
+              </header>
+              <ul>
+                {documents.map((document, index) => (
+                  <li key={document.path}>
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <div>
+                      <strong>{document.path}</strong>
+                      <small>{document.file.type || `${document.file.name.split('.').pop()?.toUpperCase()} document`} · {formatBytes(document.file.size)}</small>
+                    </div>
+                    <button type="button" onClick={() => removeDocument(document.path)} aria-label={`Remove ${document.path}`}>Remove</button>
+                  </li>
+                ))}
+              </ul>
+              <p>These files will be uploaded when you select Generate constellation.</p>
+            </section>
+          )}
 
           {error && <div className={styles.error} role="alert"><strong>SCAN INTERRUPTED</strong><span>{error}</span></div>}
           <div className={styles.submitRow}>

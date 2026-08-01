@@ -85,6 +85,8 @@ export interface DeliveryPlan {
 export interface IngestResult extends Delta {
   plan: DeliveryPlan;
   analysisMode: 'mistral' | 'fallback';
+  fileCount?: number;
+  parseWarnings?: string[];
 }
 
 export type PlanDispatchStatus = 'sent' | 'unmatched' | 'failed';
@@ -99,6 +101,16 @@ export interface PlanDispatchReceipt {
   messageId?: string;
   detail?: string;
   updatedAt: string;
+}
+
+export interface PlanFollowupRequest {
+  id: number;
+  planId: string;
+  teamId?: string;
+  teamLabel?: string;
+  ownerKeys: string[];
+  requestedAt: string;
+  consumedAt?: string;
 }
 
 export type PlanHandoffStatus = 'pending' | PlanDispatchStatus;

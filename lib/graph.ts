@@ -7,6 +7,7 @@ import type {
   GraphEdge,
   GraphNode,
   PlanDispatchReceipt,
+  PlanFollowupRequest,
   SourceRef,
   TeamDetail,
 } from './types';
@@ -290,6 +291,76 @@ export function getPlanDispatchReceipts(planId: string): PlanDispatchReceipt[] {
     WHERE planId = ?
     ORDER BY ownerKey
   `).all(planId) as PlanDispatchReceipt[];
+}
+
+export function deletePlanDispatchReceipts(planId: string, ownerKeys: string[]): void {
+  if (ownerKeys.length === 0) return;
+  const db = getDb();
+  const remove = db.prepare(
+    'DELETE FROM plan_dispatch_receipts WHERE planId = ? AND ownerKey = ?',
+  );
+  db.transaction(() => {
+    for (const ownerKey of ownerKeys) remove.run(planId, ownerKey);
+  })();
+}
+
+interface FollowupRow {
+  id: number;
+  planId: string;
+  teamId: string | null;
+  teamLabel: string | null;
+  ownerKeys: string;
+  requestedAt: string;
+  consumedAt: string | null;
+}
+
+function mapFollowup(row: FollowupRow): PlanFollowupRequest {
+  let ownerKeys: string[] = [];
+  try {
+    const parsed = JSON.parse(row.ownerKeys) as unknown;
+    if (Array.isArray(parsed)) ownerKeys = parsed.filter((key): key is string => typeof key === 'string');
+  } catch {
+    ownerKeys = [];
+  }
+  return compact({
+    id: row.id,
+    planId: row.planId,
+    teamId: row.teamId ?? undefined,
+    teamLabel: row.teamLabel ?? undefined,
+    ownerKeys,
+    requestedAt: row.requestedAt,
+    consumedAt: row.consumedAt ?? undefined,
+  });
+}
+
+export function queuePlanFollowup(
+  request: Omit<PlanFollowupRequest, 'id' | 'requestedAt' | 'consumedAt'>,
+): PlanFollowupRequest {
+  const requestedAt = new Date().toISOString();
+  const result = getDb().prepare(`
+    INSERT INTO plan_followups (planId, teamId, teamLabel, ownerKeys, requestedAt)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    request.planId,
+    request.teamId ?? null,
+    request.teamLabel ?? null,
+    JSON.stringify(request.ownerKeys),
+    requestedAt,
+  );
+  return { id: Number(result.lastInsertRowid), requestedAt, ...request };
+}
+
+export function getPendingPlanFollowups(): PlanFollowupRequest[] {
+  const rows = getDb().prepare(
+    'SELECT * FROM plan_followups WHERE consumedAt IS NULL ORDER BY id',
+  ).all() as FollowupRow[];
+  return rows.map(mapFollowup);
+}
+
+export function consumePlanFollowup(id: number): void {
+  getDb().prepare(
+    'UPDATE plan_followups SET consumedAt = ? WHERE id = ? AND consumedAt IS NULL',
+  ).run(new Date().toISOString(), id);
 }
 
 export function savePlanDispatchReceipt(receipt: PlanDispatchReceipt): void {

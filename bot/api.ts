@@ -6,6 +6,7 @@ import type {
   Delta,
   Graph,
   PlanDispatchReceipt,
+  PlanFollowupRequest,
   PlanHandoffManifest,
 } from '../lib/types';
 
@@ -77,6 +78,24 @@ export class GraphApi {
     }
     const body = (await res.json()) as { receipt: PlanDispatchReceipt };
     return body.receipt;
+  }
+
+  /** GET /api/plan/followup - follow-up requests queued from the web dashboard. */
+  async getPlanFollowups(): Promise<PlanFollowupRequest[]> {
+    const res = await fetch(`${this.baseUrl}/api/plan/followup`, { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`GET /api/plan/followup -> ${res.status} ${res.statusText}`);
+    }
+    const body = (await res.json()) as { requests: PlanFollowupRequest[] };
+    return body.requests;
+  }
+
+  /** DELETE /api/plan/followup?id=N - acknowledge a handled follow-up request. */
+  async consumePlanFollowup(id: number): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/api/plan/followup?id=${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      throw new Error(`DELETE /api/plan/followup?id=${id} -> ${res.status} ${res.statusText}`);
+    }
   }
 
   /** POST /api/delta - the only way anything changes. Runs the contradiction check itself. */

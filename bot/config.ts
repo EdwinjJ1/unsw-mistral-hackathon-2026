@@ -15,6 +15,8 @@ export interface BotConfig {
   checkinUserIds: string[];
   /** Poll interval for newly generated AI plans. 0 disables automatic dispatch. */
   planDispatchIntervalMs: number;
+  /** Poll interval for dashboard follow-up requests. 0 disables the poller. */
+  followupPollIntervalMs: number;
 }
 
 function requireEnv(name: string): string {
@@ -40,6 +42,10 @@ export function loadConfig(): BotConfig {
     planDispatchIntervalMs: Math.max(
       0,
       Number.parseInt(process.env.PLAN_DISPATCH_INTERVAL_MS ?? '0', 10) || 0,
+    ),
+    followupPollIntervalMs: Math.max(
+      0,
+      Number.parseInt(process.env.FOLLOWUP_POLL_INTERVAL_MS ?? '2000', 10) || 0,
     ),
   };
 }

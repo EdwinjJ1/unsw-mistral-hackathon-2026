@@ -17,7 +17,7 @@ import { GraphApi } from './api';
 import { handleCommand, registerGuildCommands } from './commands';
 import { loadConfig, redactToken } from './config';
 import { handleDmReply, handleGuildMention } from './flows';
-import { startPlanDispatcher, startScheduler } from './scheduler';
+import { startFollowupPoller, startPlanDispatcher, startScheduler } from './scheduler';
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -45,6 +45,7 @@ async function main(): Promise<void> {
     }
     startScheduler(client, api, config);
     startPlanDispatcher(client, api, config);
+    startFollowupPoller(client, api, config);
   });
 
   client.on(Events.InteractionCreate, (interaction) => {

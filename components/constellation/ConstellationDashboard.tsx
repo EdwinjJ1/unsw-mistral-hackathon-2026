@@ -2,10 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, DragEvent } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchGraph } from '@/lib/client-api';
-import type { Graph, Status } from '@/lib/types';
+import { fetchGraph, ingestFiles } from '@/lib/client-api';
+import type { Graph, IngestResult, Status } from '@/lib/types';
 import styles from './constellation.module.css';
 
 type Health = 'On track' | 'Watch' | 'At risk';
@@ -16,6 +16,12 @@ type WorkItem = {
   progress: number;
   due: string;
   state: 'Active' | 'Review' | 'Blocked' | 'Done';
+};
+type UpdateEntry = {
+  title: string;
+  quote?: string;
+  when: string;
+  state: WorkItem['state'];
 };
 type Department = {
   id: string;
@@ -31,7 +37,23 @@ type Department = {
   people: Person[];
   subteams: string[];
   work: WorkItem[];
+  updates?: UpdateEntry[];
 };
+
+type SelectedDocument = { file: File; path: string };
+
+const SUPPORTED_DOCUMENTS = [
+  'txt', 'md', 'csv', 'json', 'yaml', 'yml', 'xml', 'html',
+  'pdf', 'docx', 'pptx', 'xlsx', 'odt', 'odp', 'ods', 'rtf', 'epub',
+];
+const MAX_UPLOAD_FILES = 50;
+const MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const ART_DEPARTMENTS: Department[] = [
   {
@@ -238,6 +260,42 @@ function statusToProgress(status?: Status) {
   return 8;
 }
 
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function populationPosition(
+  department: Department,
+  index: number,
+  total: number,
+): CSSProperties {
+  let ring = 0;
+  let firstIndex = 0;
+  let capacity = 12;
+  while (index >= firstIndex + capacity) {
+    firstIndex += capacity;
+    ring += 1;
+    capacity += 4;
+  }
+  const countOnRing = Math.min(capacity, total - firstIndex);
+  const slot = index - firstIndex;
+  const angle = (-Math.PI / 2) + ((slot / countOnRing) * Math.PI * 2) + (ring * 0.17);
+  const radius = (department.size / 2) + 14 + (ring * 14);
+  const x = Math.cos(angle) * radius;
+  const y = Math.sin(angle) * radius;
+  return {
+    left: `calc(${department.x}% + ${x.toFixed(1)}px)`,
+    top: `calc(${department.y}% + ${y.toFixed(1)}px)`,
+    '--person-delay': `${(index % 12) * 18}ms`,
+  } as CSSProperties;
+}
+
 function teamOfNode(graph: Graph, nodeId: string) {
   const node = graph.nodes.find((item) => item.id === nodeId);
   return node?.type === 'Team' ? node.id : node?.teamId;
@@ -289,6 +347,21 @@ function deriveDepartments(graph: Graph): { departments: Department[]; links: [s
           : 'Unscheduled',
         state: statusToWork(task.status),
       })),
+      updates: graph.nodes
+        .filter(
+          (node) =>
+            (node.type === 'Task' || node.type === 'Blocker')
+            && node.teamId === team.id
+            && node.sourceRef?.kind === 'discord_dm',
+        )
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+        .slice(0, 4)
+        .map((node) => ({
+          title: node.label,
+          quote: node.sourceRef?.quote,
+          when: node.updatedAt,
+          state: statusToWork(node.status),
+        })),
     };
   });
   const known = new Set(departments.map((department) => department.id));
@@ -303,13 +376,30 @@ function deriveDepartments(graph: Graph): { departments: Department[]; links: [s
   };
 }
 
-function AtlasHeader({ teams, bodies, live }: { teams: number; bodies: number; live: boolean }) {
+function AtlasHeader({
+  teams, bodies, live, onAddMaterials,
+}: {
+  teams: number;
+  bodies: number;
+  live: boolean;
+  onAddMaterials: () => void;
+}) {
   return (
     <header className={styles.atlasHeader}>
       <div className={styles.brandLockup}>
         <span className={styles.brandMark}>A</span>
         <span><strong>Athena</strong><small>ORGANISATION ATLAS</small></span>
       </div>
+      <button
+        type="button"
+        className={styles.addSourceButton}
+        onClick={onAddMaterials}
+        aria-label="Add documents to this constellation"
+        title="Add new material"
+      >
+        <span aria-hidden="true">+</span>
+        <small>ADD MATERIAL</small>
+      </button>
       <nav className={styles.atlasNav} aria-label="Athena actions">
         <Link href="/import">Analyse documents</Link>
         <Link href="/plan">Delivery plan</Link>
@@ -323,11 +413,171 @@ function AtlasHeader({ teams, bodies, live }: { teams: number; bodies: number; l
   );
 }
 
+function IncrementalIngestModal({
+  existingGraph,
+  onClose,
+  onApplied,
+}: {
+  existingGraph: Graph;
+  onClose: () => void;
+  onApplied: (nextGraph: Graph, newTeamId?: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [documents, setDocuments] = useState<SelectedDocument[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<IngestResult | null>(null);
+  const [newCounts, setNewCounts] = useState({ teams: 0, people: 0, tasks: 0 });
+
+  const selectFiles = (files: File[]) => {
+    const supported: SelectedDocument[] = [];
+    const skipped: string[] = [];
+    for (const file of files) {
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      if (SUPPORTED_DOCUMENTS.includes(extension)) supported.push({ file, path: file.name });
+      else skipped.push(file.name);
+    }
+    if (!supported.length) {
+      setError('No supported documents found. Add text, PDF, Word, PowerPoint or Excel files.');
+      return;
+    }
+    if (supported.length > MAX_UPLOAD_FILES) {
+      setError(`A scan can contain at most ${MAX_UPLOAD_FILES} documents.`);
+      return;
+    }
+    const total = supported.reduce((sum, item) => sum + item.file.size, 0);
+    if (total > MAX_UPLOAD_BYTES) {
+      setError(`This material is ${formatBytes(total)}. The maximum upload is 30 MB.`);
+      return;
+    }
+    setDocuments(supported);
+    setResult(null);
+    setError(skipped.length
+      ? `${skipped.length} unsupported file${skipped.length === 1 ? ' was' : 's were'} skipped: ${skipped.slice(0, 3).join(', ')}`
+      : null);
+  };
+
+  const acceptDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    selectFiles(Array.from(event.dataTransfer.files));
+  };
+
+  const runScan = async () => {
+    if (!documents.length || loading) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const before = new Set(existingGraph.nodes.map((node) => node.id));
+      const scan = await ingestFiles(documents, { replace: false });
+      const nextGraph = await fetchGraph();
+      const added = nextGraph.nodes.filter((node) => !before.has(node.id));
+      const addedTeams = added.filter((node) => node.type === 'Team');
+      setNewCounts({
+        teams: addedTeams.length,
+        people: added.filter((node) => node.type === 'Person').length,
+        tasks: added.filter((node) => node.type === 'Task').length,
+      });
+      setResult(scan);
+      onApplied(nextGraph, addedTeams[0]?.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Athena could not analyse these documents.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalBytes = documents.reduce((sum, item) => sum + item.file.size, 0);
+
+  return (
+    <div className={styles.ingestBackdrop} role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget && !loading) onClose();
+    }}>
+      <section className={styles.ingestModal} role="dialog" aria-modal="true" aria-labelledby="incremental-ingest-title">
+        <header className={styles.ingestHeader}>
+          <div>
+            <p>ADD TO CONSTELLATION</p>
+            <h2 id="incremental-ingest-title">Bring new work into orbit.</h2>
+          </div>
+          <button type="button" onClick={onClose} disabled={loading} aria-label="Close document intake">×</button>
+        </header>
+
+        {!result ? (
+          <>
+            <p className={styles.ingestIntro}>
+              Athena will detect new departments, people, tasks, owners and dependencies, then merge them into the existing persisted graph.
+            </p>
+            <div
+              className={`${styles.ingestDropzone} ${dragging ? styles.ingestDropzoneActive : ''}`}
+              onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+              }}
+              onDrop={acceptDrop}
+            >
+              <span className={styles.ingestDropMark}>+</span>
+              <strong>{dragging ? 'Release to add documents' : 'Drag new material here'}</strong>
+              <small>PDF · DOCX · PPTX · XLSX · MD · TXT · CSV · JSON · up to 30 MB</small>
+              <button type="button" onClick={() => inputRef.current?.click()}>Choose documents</button>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                hidden
+                accept={SUPPORTED_DOCUMENTS.map((extension) => `.${extension}`).join(',')}
+                onChange={(event) => selectFiles(Array.from(event.target.files ?? []))}
+              />
+            </div>
+
+            {documents.length > 0 && (
+              <div className={styles.ingestManifest}>
+                <div><strong>{documents.length} document{documents.length === 1 ? '' : 's'} ready</strong><span>{formatBytes(totalBytes)}</span></div>
+                <ul>
+                  {documents.map(({ file, path }) => (
+                    <li key={`${path}-${file.size}`}><span>{path}</span><small>{formatBytes(file.size)}</small></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {error && <p className={styles.ingestError} role="alert">{error}</p>}
+            <footer className={styles.ingestFooter}>
+              <span><i /> SQLITE · INCREMENTAL MERGE</span>
+              <button type="button" onClick={() => void runScan()} disabled={!documents.length || loading}>
+                {loading ? 'ATHENA IS ANALYSING…' : 'ANALYSE & ADD TO MAP →'}
+              </button>
+            </footer>
+            {loading && <div className={styles.ingestProgress}><i /></div>}
+          </>
+        ) : (
+          <div className={styles.ingestSuccess} aria-live="polite">
+            <span>✓</span>
+            <p>SCAN COMPLETE / {result.analysisMode.toUpperCase()}</p>
+            <h3>The constellation has been updated.</h3>
+            <div>
+              <strong>{newCounts.teams}<small>NEW DEPARTMENTS</small></strong>
+              <strong>{newCounts.people}<small>NEW PEOPLE</small></strong>
+              <strong>{newCounts.tasks}<small>NEW TASKS</small></strong>
+            </div>
+            <p>{newCounts.teams
+              ? 'The first new department is selected behind this window.'
+              : 'No new department was found; matching people, work and relationships were merged into existing records.'}</p>
+            <button type="button" onClick={onClose}>VIEW UPDATED CONSTELLATION →</button>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function MapLegend() {
   return (
     <div className={styles.legend}>
       <span className={styles.legendPlanet} /><span>Department</span>
-      <span className={styles.legendMoon} /><span>Hover for orbit</span>
+      <span className={styles.legendMoon} /><span>Person / member</span>
       <span className={styles.legendLine} /><span>Collaboration</span>
     </div>
   );
@@ -406,6 +656,24 @@ function ConstellationMap({
           ].slice(0, 4);
           return (
             <div key={department.id}>
+              {department.people.map((person, personIndex) => (
+                <button
+                  type="button"
+                  key={`${department.id}-${person.name}`}
+                  className={[
+                    styles.populationPerson,
+                    isSelected ? styles.populationPersonSelected : '',
+                    hoveredId && !isOrbiting ? styles.populationPersonMuted : '',
+                  ].join(' ')}
+                  style={populationPosition(department, personIndex, department.people.length)}
+                  data-person={person.name}
+                  onClick={() => onSatellite(department, person.name)}
+                  aria-label={`Open ${person.name} in ${department.name}`}
+                  title={`${person.name} · ${department.name}`}
+                >
+                  <span>{person.initials}</span>
+                </button>
+              ))}
               <button
                 type="button"
                 className={[
@@ -467,6 +735,56 @@ function ConstellationMap({
       <MapLegend />
       <div className={styles.mapIndex}>ATHENA / PLATE No. 07</div>
     </section>
+  );
+}
+
+function FollowUpButton({ department }: { department: Department }) {
+  const [phase, setPhase] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [detail, setDetail] = useState('');
+
+  useEffect(() => {
+    setPhase('idle');
+    setDetail('');
+  }, [department.id]);
+
+  const trigger = async () => {
+    setPhase('sending');
+    try {
+      const response = await fetch('/api/plan/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: department.id }),
+      });
+      const body = await response.json() as {
+        error?: string;
+        owners?: Array<{ owner: string }>;
+      };
+      if (!response.ok) throw new Error(body.error ?? `Follow-up failed (${response.status})`);
+      setDetail([...new Set((body.owners ?? []).map((item) => item.owner))].join(', '));
+      setPhase('sent');
+    } catch (error) {
+      setDetail(error instanceof Error ? error.message : 'Follow-up failed');
+      setPhase('error');
+    }
+  };
+
+  return (
+    <div className={styles.followup}>
+      <button
+        type="button"
+        className={styles.followupButton}
+        onClick={trigger}
+        disabled={phase === 'sending' || phase === 'sent'}
+      >
+        {phase === 'sending' ? 'CONTACTING ATHENA…' : phase === 'sent' ? '✓ FOLLOW-UP DISPATCHED' : '跟进 · FOLLOW UP ON DISCORD'}
+      </button>
+      {phase === 'sent' && (
+        <small className={styles.followupNote}>
+          Athena is DMing {detail || 'the assignment owners'} on Discord now.
+        </small>
+      )}
+      {phase === 'error' && <small className={styles.followupError}>{detail}</small>}
+    </div>
   );
 }
 
@@ -540,7 +858,28 @@ function Dashboard({ department, focused }: { department: Department; focused: s
               </article>
             ))}
           </div>
+          <FollowUpButton department={department} />
         </section>
+        {(department.updates?.length ?? 0) > 0 && (
+          <section className={styles.dashboardSection}>
+            <div className={styles.sectionTitle}>
+              <h3>Update log</h3>
+              <span>DISCORD · {String(department.updates?.length ?? 0).padStart(2, '0')}</span>
+            </div>
+            <div className={styles.updateList}>
+              {department.updates?.map((update) => (
+                <article key={`${update.title}-${update.when}`}>
+                  <div className={styles.updateTopline}>
+                    <strong>{update.title}</strong>
+                    <em className={styles[`state${update.state}`]}>{update.state}</em>
+                    <span>{timeAgo(update.when)}</span>
+                  </div>
+                  {update.quote && <p>“{update.quote}”</p>}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         <footer className={styles.dashboardFooter}>
           <span>SYNCED JUST NOW</span><span>ATHENA / KNOWLEDGE GRAPH</span>
         </footer>
@@ -557,6 +896,7 @@ export function ConstellationDashboard() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [isMapFocused, setIsMapFocused] = useState(false);
+  const [isIngestOpen, setIsIngestOpen] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selected = departments.find((item) => item.id === selectedId) ?? departments[0];
 
@@ -591,6 +931,10 @@ export function ConstellationDashboard() {
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (isIngestOpen) {
+          setIsIngestOpen(false);
+          return;
+        }
         setIsMapFocused(false);
         setFocused(null);
       }
@@ -600,25 +944,40 @@ export function ConstellationDashboard() {
       window.removeEventListener('keydown', handleEscape);
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
     };
-  }, []);
+  }, [isIngestOpen]);
 
   if (!selected) {
     return (
       <main className={styles.atlas}>
-        <AtlasHeader teams={0} bodies={0} live={backendAvailable} />
+        <AtlasHeader teams={0} bodies={0} live={backendAvailable} onAddMaterials={() => setIsIngestOpen(true)} />
         <section className={styles.emptyAtlas}>
           <p>NO ORGANISATION GRAPH YET</p>
           <h1>Your documents<br /><em>become the map.</em></h1>
           <span>Upload a company corpus, deck, meeting folder or project dataset. Athena will identify the real departments, people, work and dependencies before drawing anything.</span>
           <Link href="/import">Scan a document set →</Link>
         </section>
+        {isIngestOpen && (
+          <IncrementalIngestModal
+            existingGraph={graph}
+            onClose={() => setIsIngestOpen(false)}
+            onApplied={(nextGraph, newTeamId) => {
+              setGraph(nextGraph);
+              if (newTeamId) setSelectedId(newTeamId);
+            }}
+          />
+        )}
       </main>
     );
   }
 
   return (
     <main className={styles.atlas}>
-      <AtlasHeader teams={departments.length} bodies={graph.nodes.length} live={backendAvailable} />
+      <AtlasHeader
+        teams={departments.length}
+        bodies={graph.nodes.length}
+        live={backendAvailable}
+        onAddMaterials={() => setIsIngestOpen(true)}
+      />
       <div className={styles.workspace}>
         <ConstellationMap
           departments={departments}
@@ -645,6 +1004,19 @@ export function ConstellationDashboard() {
         />
         <Dashboard department={selected} focused={focused} />
       </div>
+      {isIngestOpen && (
+        <IncrementalIngestModal
+          existingGraph={graph}
+          onClose={() => setIsIngestOpen(false)}
+          onApplied={(nextGraph, newTeamId) => {
+            setGraph(nextGraph);
+            if (newTeamId) {
+              setSelectedId(newTeamId);
+              setFocused(null);
+            }
+          }}
+        />
+      )}
     </main>
   );
 }

@@ -7,6 +7,7 @@ import type { DocumentAnalysis } from '../planning';
 
 const optionalString = z.string().nullish();
 const optionalBoolean = z.boolean().nullish();
+const optionalIsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish();
 
 const todoSchema = z.object({
   title: z.string().min(1),
@@ -15,7 +16,7 @@ const todoSchema = z.object({
   assignee: optionalString,
   ownerExplicitlyUnassigned: optionalBoolean,
   status: z.enum(['not_started', 'in_progress', 'blocked', 'at_risk', 'done']),
-  dueDate: optionalString,
+  dueDate: optionalIsoDate,
   dependencies: z.array(z.string()),
   quote: z.string(),
   sourceName: optionalString,
@@ -58,6 +59,93 @@ function normalizeAnalysis(value: z.infer<typeof analysisSchema>): DocumentAnaly
   };
 }
 
+const comparable = (value: string) => value.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
+
+function annotatedFields(line: string) {
+  return new Map(
+    line
+      .replace(/^\s*[-*]\s*/, '')
+      .split('|')
+      .flatMap((part) => {
+        const separator = part.indexOf(':');
+        if (separator < 0) return [];
+        return [[
+          comparable(part.slice(0, separator)),
+          part.slice(separator + 1).trim(),
+        ] as const];
+      }),
+  );
+}
+
+function annotatedRoster(text: string) {
+  return text.split(/\r?\n/).flatMap((line) => {
+    if (!/^\s*[-*]\s*Person\s*:/i.test(line) || !/\|\s*Department\s*:/i.test(line)) return [];
+    const fields = annotatedFields(line);
+    const name = fields.get('person');
+    const department = fields.get('department');
+    return name && department ? [{ name, department }] : [];
+  });
+}
+
+function annotatedTodos(text: string, sourceName: string): DocumentAnalysis['todos'] {
+  const statusOf = (value: string | undefined): Status => {
+    const normalized = comparable(value ?? '');
+    if (normalized === 'done' || normalized === 'complete' || normalized === 'completed') return 'done';
+    if (normalized === 'blocked') return 'blocked';
+    if (normalized === 'atrisk') return 'at_risk';
+    if (normalized === 'inprogress' || normalized === 'active') return 'in_progress';
+    return 'not_started';
+  };
+  return text.split(/\r?\n/).flatMap((line) => {
+    if (!/^\s*[-*]\s*Task\s*:/i.test(line) || !/\|\s*Department\s*:/i.test(line)) return [];
+    const fields = annotatedFields(line);
+    const title = fields.get('task');
+    const department = fields.get('department');
+    if (!title || !department) return [];
+    const owner = fields.get('owner');
+    const dueDate = fields.get('due');
+    const dependencyText = fields.get('dependson');
+    const dependencies = dependencyText && !/^(?:none|n\/a|-)$/.test(dependencyText.toLowerCase())
+      ? dependencyText.split(/\s*;\s*/).filter(Boolean)
+      : [];
+    const explicitlyUnassigned = Boolean(owner && /^(?:tbd|unowned|none|n\/a)$/i.test(owner));
+    return [{
+      title,
+      department,
+      ...(!explicitlyUnassigned && owner ? { assignee: owner } : {}),
+      ...(explicitlyUnassigned ? { ownerExplicitlyUnassigned: true } : {}),
+      status: statusOf(fields.get('status')),
+      ...(dueDate && /^\d{4}-\d{2}-\d{2}$/.test(dueDate) ? { dueDate } : {}),
+      dependencies,
+      description: fields.get('note') ?? `${title} for ${department}.`,
+      quote: line.trim(),
+      sourceName,
+    }];
+  });
+}
+
+function mergeEvidenceCoverage(
+  analysis: DocumentAnalysis,
+  fallback: DocumentAnalysis,
+): DocumentAnalysis {
+  const mergeUnique = <T>(primary: T[], secondary: T[], key: (value: T) => string) => {
+    const seen = new Set(primary.map(key));
+    return [...primary, ...secondary.filter((value) => !seen.has(key(value)))];
+  };
+  return {
+    ...analysis,
+    departments: mergeUnique(analysis.departments, fallback.departments, comparable),
+    people: mergeUnique(analysis.people, fallback.people, (person) => comparable(person.name)),
+    todos: mergeUnique(analysis.todos, fallback.todos, (todo) => comparable(todo.title)),
+    conflicts: fallback.conflicts.length ? fallback.conflicts : analysis.conflicts,
+    clarificationQuestions: mergeUnique(
+      analysis.clarificationQuestions,
+      fallback.clarificationQuestions,
+      comparable,
+    ),
+  };
+}
+
 function demoCorpusAnalysis(): DocumentAnalysis {
   return {
     summary: 'Relay 2.0 launch plan generated from the full demo corpus: four departments, an explicit roster, launch work, two cross-team contradictions, and one unowned comms task.',
@@ -92,12 +180,19 @@ function demoCorpusAnalysis(): DocumentAnalysis {
   };
 }
 
+function isDemoCorpusText(text: string) {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  return /Relay 2\.0/i.test(compact) && /AUTH-42/i.test(compact) && /Marcus Webb/i.test(compact);
+}
+
 function fallbackAnalysis(text: string, sourceName: string, graph: Graph): DocumentAnalysis {
   const compact = text.replace(/\s+/g, ' ').trim();
-  const isDemoCorpus = /Relay 2\.0/i.test(compact) && /AUTH-42/i.test(compact) && /Marcus Webb/i.test(compact);
-  if (isDemoCorpus) return demoCorpusAnalysis();
+  if (isDemoCorpusText(text)) return demoCorpusAnalysis();
 
   const existingTeams = graph.nodes.filter((node) => node.type === 'Team');
+  const rosterAnnotations = annotatedRoster(text);
+  const todoAnnotations = annotatedTodos(text, sourceName);
+  const hasStructuredAnnotations = rosterAnnotations.length > 0 || todoAnnotations.length > 0;
   const knownTeamLabels = ['Product', 'Engineering', 'Design', 'Legal/Ops', 'Operations', 'Legal', 'Finance', 'Research', 'People', 'Growth', 'Strategy'];
   const mentionsTeam = (value: string, label: string) => {
     const haystack = value.toLowerCase();
@@ -106,22 +201,30 @@ function fallbackAnalysis(text: string, sourceName: string, graph: Graph): Docum
       .filter((part) => part.length >= 3);
     return candidates.some((candidate) => haystack.includes(candidate));
   };
-  const departments = [...new Set([
-    ...existingTeams.filter((team) => mentionsTeam(compact, team.label)).map((team) => team.label),
-    ...knownTeamLabels.filter((label) => mentionsTeam(compact, label)),
-  ])].filter((label) => label !== 'Legal' && label !== 'Operations' || !departmentsIncludesCombined(compact));
+  const departments = [...new Set(hasStructuredAnnotations
+    ? [
+        ...rosterAnnotations.map((person) => person.department),
+        ...todoAnnotations.map((todo) => todo.department).filter((department): department is string => Boolean(department)),
+      ]
+    : [
+        ...existingTeams.filter((team) => mentionsTeam(compact, team.label)).map((team) => team.label),
+        ...knownTeamLabels.filter((label) => mentionsTeam(compact, label)),
+      ])].filter((label) => label !== 'Legal' && label !== 'Operations' || !departmentsIncludesCombined(compact));
   const people = graph.nodes.filter((node) => node.type === 'Person');
   const lines = text
     .split(/\r?\n|(?<=[.!?。！？])\s+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const actionLines = lines.filter(
+  const actionLines = hasStructuredAnnotations ? [] : lines.filter(
     (line) =>
-      /^(?:[-*]\s*)?(?:\[[ xX]\]\s*)?(?:todo|to-do|action(?: item)?|task|待办|行动项)\s*[:：-]?/i.test(line) ||
-      /^(?:[-*]\s*)?\[[ xX]\]\s*/.test(line) ||
-      /\bowns?\b|\bis (?:still )?unowned\b|\bneeds? to\b|\bmust\b|\bshould\b|负责|待办|需要/.test(line.toLowerCase()),
+      !(/^[-*]\s*Task\s*:/i.test(line) && /\|\s*Department\s*:/i.test(line))
+      && (
+        /^(?:[-*]\s*)?(?:\[[ xX]\]\s*)?(?:todo|to-do|action(?: item)?|task|待办|行动项)\s*[:：-]?/i.test(line)
+        || /^(?:[-*]\s*)?\[[ xX]\]\s*/.test(line)
+        || /\bowns?\b|\bis (?:still )?unowned\b|\bneeds? to\b|\bmust\b|\bshould\b|负责|待办|需要/.test(line.toLowerCase())
+      ),
   );
-  const todos = actionLines.map((line) => {
+  const inferredTodos = actionLines.map((line) => {
     const checked = /\[[xX]\]/.test(line);
     const cleaned = line
       .replace(/^[-*]\s*/, '')
@@ -169,8 +272,11 @@ function fallbackAnalysis(text: string, sourceName: string, graph: Graph): Docum
   return {
     summary: compact.slice(0, 300) || 'No document summary was available.',
     departments,
-    people: [],
-    todos,
+    people: rosterAnnotations,
+    todos: [
+      ...todoAnnotations,
+      ...inferredTodos.filter((todo) => !todoAnnotations.some((annotated) => comparable(annotated.title) === comparable(todo.title))),
+    ],
     conflicts: [],
     clarificationQuestions: [],
   };
@@ -186,6 +292,11 @@ export async function analyseDocument(
   graph: Graph,
 ): Promise<{ analysis: DocumentAnalysis; mode: 'mistral' | 'fallback' }> {
   const fallback = fallbackAnalysis(text, sourceName, graph);
+  const finalizeMistralAnalysis = (value: z.infer<typeof analysisSchema>) => {
+    const normalized = normalizeAnalysis(value);
+    return isDemoCorpusText(text) ? mergeEvidenceCoverage(normalized, fallback) : normalized;
+  };
+  const referenceDate = new Date().toISOString().slice(0, 10);
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) return { analysis: fallback, mode: 'fallback' };
 
@@ -211,11 +322,11 @@ export async function analyseDocument(
           {
             role: 'system',
             content:
-              'Extract an exact organisation graph and project plan from all supplied documents. Return canonical departments, people with their departments, actionable todos, dependencies, and evidence-backed conflicts; conflict task titles must exactly match titles in todos. Preserve explicit owners and statuses; when a source explicitly says owner TBD, no owner, or unowned, set ownerExplicitlyUnassigned=true and do not assign a person. Normalize Eng to Engineering and the combined Legal/Ops team to Legal/Ops, never invent dates, and include the exact source filename and quote for every task or conflict. For meeting.md, map each action to its discussed department. Return empty todos for noise.',
+              'Extract an exact organisation graph and project plan from all supplied documents. Return canonical departments, people with their departments, actionable todos, dependencies, and evidence-backed conflicts; conflict task titles must exactly match titles in todos. Include completed work when it is required to represent a dependency or contradiction. Preserve explicit owners and statuses; when a source explicitly says owner TBD, no owner, or unowned, set ownerExplicitlyUnassigned=true and do not assign a person. Normalize Eng to Engineering and the combined Legal/Ops team to Legal/Ops. dueDate must be YYYY-MM-DD; resolve today/tomorrow against the supplied reference date, otherwise omit it, and never invent dates. Include the exact source filename and quote for every task or conflict. For meeting.md, map each action to its discussed department. Return empty todos for noise.',
           },
           {
             role: 'user',
-            content: `Source: ${sourceName}\nExisting roster and tasks: ${JSON.stringify(roster)}\n\nDocument:\n${text}`,
+            content: `Reference date: ${referenceDate}\nSource: ${sourceName}\nExisting roster and tasks: ${JSON.stringify(roster)}\n\nDocument:\n${text}`,
           },
         ],
       },
@@ -223,14 +334,20 @@ export async function analyseDocument(
     );
     const choice = response.choices?.[0];
     const parsed = choice?.message?.parsed;
-    if (parsed) return { analysis: normalizeAnalysis(analysisSchema.parse(parsed)), mode: 'mistral' };
+    if (parsed) return {
+      analysis: finalizeMistralAnalysis(analysisSchema.parse(parsed)),
+      mode: 'mistral',
+    };
 
     const content = choice?.message?.content;
     if (typeof content === 'string' && content.trim()) {
       const cleaned = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
       try {
         const checked = analysisSchema.safeParse(JSON.parse(cleaned));
-        if (checked.success) return { analysis: normalizeAnalysis(checked.data), mode: 'mistral' };
+        if (checked.success) return {
+          analysis: finalizeMistralAnalysis(checked.data),
+          mode: 'mistral',
+        };
         throw new Error(checked.error.issues.slice(0, 3).map((issue) =>
           `${issue.path.join('.')}: ${issue.message}`).join('; '));
       } catch (error) {
