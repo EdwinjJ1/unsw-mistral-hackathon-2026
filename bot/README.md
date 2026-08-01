@@ -2,7 +2,7 @@
 
 The hands of Athena. Reads a person's slice of the graph, DMs them their work,
 listens for the reply, and writes what it learns back through `POST /api/delta`.
-It holds no state: everything comes from the graph, everything goes back to it.
+It also delivers persistent task reminders leased from the web app's SQLite queue.
 
 ## Files
 
@@ -14,7 +14,7 @@ It holds no state: everything comes from the graph, everything goes back to it.
 | `mistral.ts` | Track E seam: imports `lib/mistral` if present, else deterministic fallbacks for `triageReply`, `extractDelta`, and `composeDM`. |
 | `flows.ts` | Outbound check-in plus inbound reply handling: triage, extract, post. |
 | `commands.ts` | `/athena-hello` and `/athena-status` slash commands. |
-| `scheduler.ts` | Optional `setInterval` check-in loop, disabled by default. |
+| `scheduler.ts` | Independent check-in and persistent task-reminder polling loops. |
 | `dispatch.ts` | Exact roster matching, grouped plan DMs and idempotent delivery receipts. |
 
 ## Setup
@@ -30,6 +30,8 @@ It holds no state: everything comes from the graph, everything goes back to it.
 3. Put your server guild id in `.env` as `DISCORD_GUILD_ID`.
    - Discord -> User Settings -> Developer -> Developer Mode.
    - Right-click the server -> Copy Server ID.
+4. Right-click the channel that should receive task pushes, copy its ID, and set
+   `DISCORD_TASK_CHANNEL_ID`. The bot needs View Channel and Send Messages there.
 
 ## Env
 
@@ -43,6 +45,9 @@ Optional:
 - `API_BASE_URL` (default `http://localhost:3000`)
 - `CHECKIN_INTERVAL_MS` (default `0`, scheduler off)
 - `CHECKIN_USER_IDS` (comma-separated Discord user ids for scheduled check-ins)
+- `DISCORD_TASK_CHANNEL_ID` (required for task push and reminder features)
+- `REMINDER_POLL_INTERVAL_MS` (default `15000`; set `0` to disable reminder delivery)
+- `REMINDER_WORKER_SECRET` (shared by Next and the bot; required in production)
 - `PLAN_DISPATCH_INTERVAL_MS` (default `0`; set a positive interval only after the roster is verified)
 
 ## Run
@@ -77,6 +82,11 @@ write carries `{ kind: 'discord_dm', ref: message.id, quote: message.content }`.
 
 In server channels, Athena only replies when explicitly mentioned. This keeps
 the main workflow focused on slash-command-triggered DMs.
+
+The atlas sidebar can push a task immediately through `POST /api/discord/tasks`
+or queue it with `POST /api/reminders`. The bot leases due items through the
+protected worker routes, sends them to `DISCORD_TASK_CHANNEL_ID`, and records the
+Discord message id. Delivery failures are retried up to three times.
 
 ## Track E
 

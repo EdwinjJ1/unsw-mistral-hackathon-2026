@@ -2,38 +2,89 @@
 // project. Disabled unless CHECKIN_INTERVAL_MS > 0 and at least one
 // CHECKIN_USER_IDS entry is set.
 
-import type { Client } from 'discord.js';
+import { Routes, type Client } from 'discord.js';
+import { formatDiscordTask } from '../lib/task-actions';
 import type { GraphApi } from './api';
 import type { BotConfig } from './config';
 import { createDiscordRecipientDirectory, dispatchPlanHandoffs } from './dispatch';
 import { sendCheckIn } from './flows';
 
 export function startScheduler(client: Client, api: GraphApi, config: BotConfig): () => void {
+  const timers: ReturnType<typeof setInterval>[] = [];
+
   if (config.checkinIntervalMs <= 0 || config.checkinUserIds.length === 0) {
     console.log('[scheduler] disabled (set CHECKIN_INTERVAL_MS and CHECKIN_USER_IDS to enable)');
-    return () => {};
+  } else {
+    console.log(
+      `[scheduler] every ${config.checkinIntervalMs}ms for ${config.checkinUserIds.length} user(s)`,
+    );
+
+    const checkinTimer = setInterval(() => {
+      void (async () => {
+        for (const userId of config.checkinUserIds) {
+          try {
+            const user = await client.users.fetch(userId);
+            await sendCheckIn(user, api);
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`[scheduler] check-in to ${userId} failed:`, reason);
+          }
+        }
+      })();
+    }, config.checkinIntervalMs);
+    checkinTimer.unref?.();
+    timers.push(checkinTimer);
   }
 
-  console.log(
-    `[scheduler] every ${config.checkinIntervalMs}ms for ${config.checkinUserIds.length} user(s)`,
-  );
-
-  const timer = setInterval(() => {
-    void (async () => {
-      for (const userId of config.checkinUserIds) {
-        try {
-          const user = await client.users.fetch(userId);
-          await sendCheckIn(user, api);
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          console.error(`[scheduler] check-in to ${userId} failed:`, reason);
+  if (config.reminderPollIntervalMs > 0) {
+    console.log(`[reminders] polling every ${config.reminderPollIntervalMs}ms`);
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const reminders = await api.claimDueReminders();
+        for (const reminder of reminders) {
+          try {
+            const result = await client.rest.post(Routes.channelMessages(reminder.channelId), {
+              body: {
+                content: formatDiscordTask(reminder, true),
+                allowed_mentions: { parse: [] },
+              },
+            }) as { id?: unknown };
+            if (typeof result.id !== 'string') throw new Error('Discord did not return a message id');
+            await api.finishReminder(reminder.id, { sent: true, messageId: result.id });
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.error(`[reminders] ${reminder.id} delivery failed:`, reason);
+            await api.finishReminder(reminder.id, { sent: false, error: reason }).catch(
+              (finishError) => console.error(
+                `[reminders] ${reminder.id} release failed:`,
+                finishError instanceof Error ? finishError.message : finishError,
+              ),
+            );
+          }
         }
+      } catch (error) {
+        console.error(
+          '[reminders] poll failed:',
+          error instanceof Error ? error.message : error,
+        );
+      } finally {
+        polling = false;
       }
-    })();
-  }, config.checkinIntervalMs);
+    };
+    const reminderTimer = setInterval(() => void poll(), config.reminderPollIntervalMs);
+    reminderTimer.unref?.();
+    timers.push(reminderTimer);
+    void poll();
+  } else {
+    console.log('[reminders] disabled (set REMINDER_POLL_INTERVAL_MS to enable)');
+  }
 
-  timer.unref?.();
-  return () => clearInterval(timer);
+  return () => {
+    for (const timer of timers) clearInterval(timer);
+  };
 }
 
 /** Poll the follow-up queue: each dashboard 跟进 click becomes real Discord DMs. */

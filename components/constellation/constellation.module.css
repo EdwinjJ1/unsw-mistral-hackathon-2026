@@ -10,10 +10,12 @@
   overflow: hidden;
   color: var(--ink);
   background:
-    radial-gradient(circle at 16% 9%, rgb(255 255 255 / 82%), transparent 30%),
-    radial-gradient(circle at 74% 66%, rgb(119 92 53 / 5%), transparent 35%),
+    radial-gradient(circle at 14% 8%, rgb(255 255 255 / 74%), transparent 31%),
+    radial-gradient(ellipse at 72% 68%, rgb(119 92 53 / 5%), transparent 42%),
+    linear-gradient(112deg, transparent 0 46%, rgb(91 70 44 / 2.5%) 48%, transparent 51%),
     var(--paper);
   font-family: 'EB Garamond', Georgia, serif;
+  font-variant-numeric: oldstyle-nums;
 }
 
 .atlas::before {
@@ -22,9 +24,25 @@
   z-index: 30;
   pointer-events: none;
   content: '';
-  opacity: 0.25;
+  opacity: 0.38;
   mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
+  background-image: url('/textures/paper-cotton.webp');
+  background-repeat: repeat;
+  background-size: 620px 620px;
+  filter: contrast(1.04) saturate(0.72);
+}
+
+.atlas::after {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  pointer-events: none;
+  content: '';
+  opacity: 0.24;
+  mix-blend-mode: soft-light;
+  background:
+    radial-gradient(ellipse at 31% 22%, rgb(255 255 255 / 72%), transparent 34%),
+    radial-gradient(ellipse at 68% 74%, rgb(101 72 39 / 15%), transparent 39%);
 }
 
 .atlasHeader {
@@ -36,7 +54,10 @@
   justify-content: space-between;
   padding: 0 27px;
   border-bottom: 1px solid rgb(29 36 35 / 50%);
-  background: rgb(244 240 230 / 88%);
+  background:
+    linear-gradient(rgb(244 240 230 / 86%), rgb(244 240 230 / 91%)),
+    url('/textures/paper-cotton.webp') 0 0 / 520px 520px repeat;
+  background-blend-mode: normal, multiply;
   backdrop-filter: blur(12px);
 }
 
@@ -91,7 +112,7 @@
 .brandLockup small {
   color: var(--ink-soft);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.13em;
 }
 
@@ -100,7 +121,7 @@
   align-items: center;
   gap: 22px;
   color: var(--ink-soft);
-  font-size: 7px;
+  font-size: 9px;
 }
 
 .atlasNav {
@@ -381,8 +402,14 @@
 
 .workspace {
   height: calc(100dvh - 62px);
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(350px, 28vw);
+  grid-template-columns: minmax(0, 1fr) clamp(420px, 30vw, 470px);
+  transition: grid-template-columns 720ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.workspace.workspaceCollapsed {
+  grid-template-columns: minmax(0, 1fr) 72px;
 }
 
 .emptyAtlas {
@@ -420,6 +447,9 @@
   min-width: 0;
   overflow: hidden;
   border-right: 1px solid rgb(29 36 35 / 46%);
+  background:
+    radial-gradient(circle at 47% 48%, rgb(255 255 255 / 28%), transparent 38%),
+    linear-gradient(90deg, transparent 0 73%, rgb(21 63 92 / 2.5%) 73% 100%);
 }
 
 .mapPanel::after {
@@ -429,9 +459,26 @@
   pointer-events: none;
   content: '';
   background:
-    linear-gradient(90deg, transparent 49.94%, rgb(29 36 35 / 6%) 50%, transparent 50.06%),
-    linear-gradient(transparent 49.92%, rgb(29 36 35 / 5%) 50%, transparent 50.08%);
-  opacity: 0.55;
+    linear-gradient(90deg, transparent 32.94%, rgb(29 36 35 / 5%) 33%, transparent 33.06%),
+    linear-gradient(90deg, transparent 65.94%, rgb(29 36 35 / 5%) 66%, transparent 66.06%),
+    linear-gradient(transparent 49.92%, rgb(29 36 35 / 4%) 50%, transparent 50.08%);
+  opacity: 0.48;
+}
+
+.mapPanel::before {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  content: '';
+  opacity: 0;
+  background:
+    radial-gradient(circle at 52% 54%, transparent 0 23%, rgb(242 238 227 / 16%) 43%, rgb(242 238 227 / 86%) 82%);
+  transition: opacity 820ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mapPanelFocused::before {
+  opacity: 1;
 }
 
 .mapIntro {
@@ -440,25 +487,30 @@
   top: 28px;
   left: 29px;
   pointer-events: none;
+  text-wrap: balance;
   transition: opacity 360ms ease, transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .mapPanelFocused .mapIntro {
-  opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-2px);
+}
+
+.mapPanelFocused .mapIntro h1 {
+  max-width: 7.5ch;
+  font-size: clamp(34px, 3.1vw, 52px);
 }
 
 .mapIntro p {
   margin: 0 0 11px;
   color: var(--blue);
-  font-size: 7px;
+  font-size: 9px;
 }
 
 .mapIntro h1 {
   margin: 0;
-  font-size: clamp(34px, 3.3vw, 55px);
+  font-size: clamp(38px, 3.5vw, 58px);
   font-weight: 400;
-  line-height: 0.83;
+  line-height: 0.88;
   letter-spacing: -0.055em;
 }
 
@@ -471,23 +523,28 @@
   display: block;
   margin-top: 16px;
   color: var(--ink-soft);
-  font-size: 6px;
+  font-size: 9px;
+  line-height: 1.4;
 }
 
 .chart {
-  --camera-x: 0%;
-  --camera-y: 0%;
+  --focus-x: 0%;
+  --focus-y: 0%;
+  --focus-origin-x: 50%;
+  --focus-origin-y: 50%;
+  --focus-zoom: 1.3;
   position: absolute;
   z-index: 3;
-  inset: 0;
+  inset: 2.5% 4.5% 7% 2.5%;
   transform: translate3d(0, 0, 0) scale(1);
-  transform-origin: center;
-  transition: transform 860ms cubic-bezier(0.18, 0.82, 0.18, 1);
+  transform-origin: var(--focus-origin-x) var(--focus-origin-y);
+  transition: transform 980ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .chartFocused {
-  transform: translate3d(var(--camera-x), var(--camera-y), 0) scale(1.11);
+  transform: translate3d(var(--focus-x), var(--focus-y), 0) scale(var(--focus-zoom));
+  transition-delay: 70ms;
 }
 
 .network {
@@ -505,21 +562,32 @@
   fill: none;
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
-  transition: opacity 280ms ease, stroke 280ms ease;
+  transition:
+    opacity 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 420ms ease;
 }
 
 .networkLine {
-  stroke: rgb(29 36 35 / 28%);
+  stroke: rgb(29 36 35 / 26%);
   stroke-width: 0.7;
   stroke-dasharray: 1 4;
-  opacity: 0.22;
+  opacity: 0.055;
+}
+
+.networkFocused .networkLine,
+.networkFocused .networkActive {
+  opacity: 0;
+}
+
+.networkFocused .networkActive {
+  animation-play-state: paused;
 }
 
 .networkActive {
   stroke: rgb(21 63 92 / 61%);
   stroke-width: 1.05;
   stroke-dasharray: 4 4;
-  opacity: 0.82;
+  opacity: 0.76;
   animation: dash-travel 18s linear infinite;
 }
 
@@ -530,8 +598,32 @@
   animation: orbit-draw 380ms ease both;
 }
 
+.systemOrbit,
+.systemOrbitInner {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: rgb(21 63 92 / 28%);
+  stroke-width: 0.7;
+  stroke-dasharray: 1 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: system-orbit-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.systemOrbit {
+  transform: rotate(-5deg);
+}
+
+.systemOrbitInner {
+  stroke: rgb(165 81 48 / 22%);
+  stroke-dasharray: 5 6;
+  transform: rotate(8deg);
+  animation-delay: 70ms;
+}
+
 .planetButton {
   --float-delay: 0s;
+  --exit-delay: 0ms;
   position: absolute;
   padding: 0;
   border: 0;
@@ -540,7 +632,7 @@
   cursor: pointer;
   transform: translate(-50%, -50%);
   animation: planet-float 7s ease-in-out var(--float-delay) infinite;
-  transition: opacity 360ms ease, filter 360ms ease;
+  transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .planetButton:focus-visible {
@@ -553,25 +645,43 @@
   inset: 0;
   display: block;
   transform: translateZ(0) scale(1);
-  transition: transform 720ms cubic-bezier(0.16, 1, 0.3, 1), filter 320ms ease;
+  transition: transform 880ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .planetButton:hover .planetVisual,
 .planetButton:focus-visible .planetVisual {
   transform: translateZ(0) scale(1.08) rotate(1deg);
-  filter: saturate(1.08) contrast(1.02);
 }
 
 .planetInFocus .planetVisual,
 .planetInFocus:hover .planetVisual,
 .planetInFocus:focus-visible .planetVisual {
-  transform: translateZ(0) scale(1.31);
+  transform: translateZ(0) scale(var(--focus-planet-scale, 1.18));
+}
+
+.planetInFocus {
+  animation: none;
+  transform: translate(-50%, -50%);
+}
+
+.planetOutOfFocus {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 480ms cubic-bezier(0.4, 0, 0.2, 1) var(--exit-delay);
+}
+
+.planetOutOfFocus .planetVisual {
+  transform: translateZ(0) scale(0.76);
+}
+
+.planetOutOfFocus .planetCaption {
+  opacity: 0;
+  transform: translate(-50%, 7px) scale(0.96);
 }
 
 .planetMuted {
-  opacity: 0.46;
-  filter: grayscale(0.48);
+  opacity: 0.74;
 }
 
 .planetImage {
@@ -585,7 +695,7 @@
   z-index: -1;
   border: 1px solid transparent;
   border-radius: 50%;
-  transition: border-color 320ms ease, transform 520ms ease;
+  transition: border-color 420ms ease, transform 620ms ease, opacity 420ms ease;
 }
 
 .planetSelected .planetHalo {
@@ -623,18 +733,19 @@
   width: max-content;
   flex-direction: column;
   align-items: center;
-  padding: 3px 7px 4px;
-  background: rgb(244 240 230 / 88%);
+  padding: 3px 6px 4px;
+  border-bottom: 1px solid rgb(29 36 35 / 12%);
+  background: rgb(244 240 230 / 91%);
   transform: translateX(-50%);
   transition: transform 420ms ease, opacity 280ms ease;
 }
 
 .planetInFocus .planetCaption {
-  transform: translate(-50%, 18px) scale(0.9);
+  transform: translate(-50%, 11px) scale(0.96);
 }
 
 .planetCaption strong {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1;
 }
@@ -643,8 +754,32 @@
   margin-top: 3px;
   color: var(--ink-soft);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
+  font-size: 8px;
   letter-spacing: 0.12em;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.planetButton:hover .planetCaption small,
+.planetButton:focus-visible .planetCaption small,
+.planetSelected .planetCaption small {
+  opacity: 1;
+}
+
+.satelliteNode {
+  --satellite-x: 0%;
+  --satellite-y: 0%;
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+  transform: translate3d(var(--satellite-x), var(--satellite-y), 0);
+  transition: transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.satelliteNodeActive {
+  z-index: 12;
+  will-change: transform;
 }
 
 .populationPerson {
@@ -736,13 +871,17 @@
 
 .satellite {
   --satellite-delay: 0ms;
+  --satellite-tx: -50%;
+  --satellite-ty: -50%;
   position: absolute;
-  z-index: 12;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
   display: flex;
   min-width: max-content;
   align-items: center;
-  gap: 7px;
-  padding: 5px 8px 5px 5px;
+  gap: 8px;
+  padding: 7px 10px 7px 7px;
   border: 1px solid rgb(29 36 35 / 24%);
   border-radius: 2px;
   color: var(--ink);
@@ -751,7 +890,7 @@
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.72);
+  transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(0.72);
   transform-origin: center;
   transition:
     opacity 220ms ease var(--satellite-delay),
@@ -771,7 +910,13 @@
 .satelliteVisible {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(1);
+  will-change: transform, opacity;
+  animation: satellite-reveal 420ms cubic-bezier(0.16, 1, 0.3, 1) var(--satellite-delay) backwards;
+}
+
+.satelliteInFocus {
+  border-color: rgb(21 63 92 / 32%);
 }
 
 .satellite:hover,
@@ -780,7 +925,7 @@
   outline: none;
   border-color: var(--blue);
   background: var(--paper-light);
-  transform: translate(-50%, -50%) scale(1.045);
+  transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(1.045);
 }
 
 .satellite img {
@@ -803,7 +948,7 @@
 .satellite strong {
   max-width: 120px;
   overflow: hidden;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -812,11 +957,11 @@
 
 .satellite small {
   max-width: 120px;
-  margin-top: 2px;
+  margin-top: 3px;
   overflow: hidden;
   color: var(--ink-soft);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5px;
+  font-size: 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -825,22 +970,23 @@
   position: absolute;
   z-index: 16;
   top: 27px;
-  left: 28px;
+  right: 28px;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 11px;
+  gap: 10px;
+  min-height: 38px;
+  padding: 9px 13px;
   border: 1px solid rgb(29 36 35 / 35%);
   color: var(--ink);
   background: rgb(248 245 236 / 88%);
   cursor: pointer;
-  font-size: 6px;
+  font-size: 9px;
   animation: control-in 360ms ease both;
 }
 
 .resetView span {
   font-family: 'EB Garamond', Georgia, serif;
-  font-size: 16px;
+  font-size: 19px;
   line-height: 0.7;
   transition: transform 200ms ease;
 }
@@ -858,19 +1004,19 @@
 .legend {
   position: absolute;
   z-index: 12;
-  bottom: 25px;
+  bottom: 23px;
   left: 28px;
   display: grid;
   grid-template-columns: 18px auto;
   align-items: center;
-  gap: 7px 8px;
+  gap: 8px 9px;
   color: var(--ink-soft);
-  font-size: 6px;
+  font-size: 8px;
   transition: opacity 300ms ease;
 }
 
 .mapPanelFocused .legend {
-  opacity: 0.38;
+  opacity: 0.7;
 }
 
 .legendPlanet,
@@ -901,67 +1047,212 @@
 .mapIndex {
   position: absolute;
   z-index: 12;
-  right: 16px;
+  right: 18px;
   bottom: 21px;
   color: var(--ink-soft);
-  font-size: 6px;
+  font-size: 8px;
   writing-mode: vertical-rl;
 }
 
 .sidebar {
+  /* Two ink levels so hierarchy leans on colour, not only on size. */
+  --ink-soft: #545a54;
+  --ink-faint: #666c66;
   position: relative;
-  z-index: 18;
+  /* Above the global paper grain so the record sheet is not double-textured. */
+  z-index: 31;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
   height: 100%;
-  padding: 14px 14px 14px 18px;
+  padding: 16px 16px 16px 22px;
   overflow: visible;
   background:
     linear-gradient(90deg, rgb(29 36 35 / 5%) 1px, transparent 1px),
-    rgb(226 220 205 / 43%);
-  background-size: 16px 100%;
+    linear-gradient(rgb(226 220 205 / 69%), rgb(226 220 205 / 75%)),
+    url('/textures/paper-cotton.webp') 0 0 / 560px 560px repeat;
+  background-size: 16px 100%, auto, 560px 560px;
+  background-blend-mode: normal, normal, multiply;
+  transition: padding 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar::after {
+  position: absolute;
+  z-index: 0;
+  top: 222px;
+  bottom: 24px;
+  left: 50%;
+  border-left: 1px dotted transparent;
+  content: '';
+  opacity: 0;
+  transition: opacity 300ms ease 120ms, border-color 300ms ease 120ms;
+}
+
+.sidebarCollapsed {
+  padding: 16px 8px;
+}
+
+.sidebarCollapsed::after {
+  border-color: rgb(29 36 35 / 22%);
+  opacity: 1;
 }
 
 .bookmarkTab {
   position: absolute;
   z-index: 4;
-  top: 23px;
-  left: -12px;
-  width: 31px;
-  height: 108px;
+  top: 26px;
+  left: -18px;
+  width: 44px;
+  height: 180px;
   display: grid;
-  place-items: center;
+  grid-template-rows: 7px 34px minmax(44px, 1fr) 20px;
+  justify-items: center;
+  align-items: start;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 15px 0 25px;
+  border: 0;
   clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%);
   color: var(--paper-light);
   background: var(--blue);
-  box-shadow: 4px 5px 10px rgb(29 36 35 / 16%);
+  box-shadow:
+    5px 7px 14px rgb(29 36 35 / 20%),
+    inset -1px 0 rgb(255 255 255 / 18%);
+  cursor: pointer;
+  transition:
+    left 620ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 180ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.bookmarkTab::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border: 1px solid rgb(250 247 239 / 70%);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgb(21 63 92 / 90%);
+  content: '';
+}
+
+.bookmarkTab span,
+.bookmarkTab strong {
+  font-family: 'IBM Plex Mono', monospace;
+  writing-mode: vertical-rl;
 }
 
 .bookmarkTab span {
-  margin-top: -12px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
-  letter-spacing: 0.13em;
+  align-self: center;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+}
+
+.bookmarkTab strong {
+  align-self: center;
+  max-height: 55px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
   white-space: nowrap;
-  writing-mode: vertical-rl;
+}
+
+.bookmarkTab i {
+  position: static;
+  align-self: end;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 20px;
+  font-style: normal;
+  line-height: 1;
+  transform: translateX(0);
+  transition: transform 220ms ease;
+}
+
+.bookmarkTab:hover {
+  background: #1a4b6c;
+  box-shadow:
+    6px 9px 18px rgb(29 36 35 / 24%),
+    inset -1px 0 rgb(255 255 255 / 22%);
+}
+
+.bookmarkTab:hover i {
+  transform: translateX(2px);
+}
+
+.bookmarkTab:focus-visible {
+  outline: 2px solid var(--paper-light);
+  outline-offset: -4px;
+}
+
+.sidebarCollapsed .bookmarkTab {
+  left: 14px;
+}
+
+.sidebarCollapsed .bookmarkTab:hover i {
+  transform: translateX(-2px);
 }
 
 .dashboard {
   position: relative;
-  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   border: 1px solid rgb(29 36 35 / 35%);
   background:
-    linear-gradient(90deg, transparent 31px, rgb(165 81 48 / 13%) 31px, rgb(165 81 48 / 13%) 32px, transparent 32px),
-    rgb(249 246 238 / 91%);
+    linear-gradient(90deg, transparent 24px, rgb(165 81 48 / 13%) 24px, rgb(165 81 48 / 13%) 25px, transparent 25px),
+    linear-gradient(rgb(249 246 238 / 80%), rgb(247 243 233 / 88%)),
+    url('/textures/paper-cotton.webp') 0 0 / 520px 520px repeat,
+    var(--paper-light);
+  background-blend-mode: normal, normal, multiply, normal;
   box-shadow:
-    0 12px 28px rgb(40 32 22 / 11%),
+    -8px 14px 32px rgb(40 32 22 / 10%),
+    0 2px 5px rgb(40 32 22 / 5%),
     inset 0 0 42px rgb(110 85 52 / 3%);
   scrollbar-color: rgb(29 36 35 / 24%) transparent;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  animation: sheet-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition:
+    opacity 280ms ease,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear;
+}
+
+.sidebarCollapsed .dashboard {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(18px);
+  animation: none;
+  transition:
+    opacity 220ms ease,
+    transform 440ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 440ms;
+}
+
+.dashboard::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgb(29 36 35 / 28%);
+  background-clip: padding-box;
 }
 
 .dashboardHeader {
-  padding: 20px 24px 20px 43px;
+  padding: 22px 22px 22px 36px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -969,9 +1260,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 17px;
+  margin-bottom: 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px dotted rgb(29 36 35 / 25%);
   color: var(--blue);
-  font-size: 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.085em;
 }
 
 .recordLine p {
@@ -983,29 +1277,68 @@
 }
 
 .dashboardTitleRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
+}
+
+.dashboardTitleCopy {
+  min-width: 0;
+  padding-top: 3px;
 }
 
 .dashboardTitleRow h2 {
-  margin: 0 0 7px;
-  font-size: clamp(38px, 3.4vw, 56px);
+  margin: 0 0 8px;
+  max-width: 100%;
+  font-size: clamp(30px, 2.2vw, 36px);
   font-weight: 400;
-  line-height: 0.8;
-  letter-spacing: -0.06em;
+  line-height: 0.94;
+  letter-spacing: -0.036em;
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 .dashboardPlanet {
   position: relative;
-  width: 64px;
-  height: 64px;
-  flex: 0 0 64px;
+  width: 72px;
+  height: 72px;
+  display: block;
+  overflow: visible;
+  filter: saturate(0.94);
   animation: detail-planet-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.dashboardPlanet img {
+.dashboardPlanet::before,
+.dashboardPlanet::after {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  content: '';
+}
+
+.dashboardPlanet::before {
+  inset: 3px;
+  border: 1px dotted rgb(29 36 35 / 28%);
+}
+
+.dashboardPlanet::after {
+  top: 1px;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border: 1px solid var(--blue);
+  background: var(--paper-light);
+  transform: translateX(-50%);
+}
+
+.dashboardPlanetArt {
+  position: absolute;
+  inset: 8px;
+  display: block;
+}
+
+.dashboardPlanetArt img {
   object-fit: contain;
   filter: drop-shadow(4px 6px 4px rgb(31 36 34 / 18%));
 }
@@ -1013,16 +1346,16 @@
 .health {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 6px;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .health i {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -1040,26 +1373,28 @@
 }
 
 .description {
-  margin: 20px 0 0;
-  color: #3c413d;
-  font-size: 12px;
-  line-height: 1.47;
+  max-width: 42ch;
+  margin: 18px 0 0;
+  color: #343a36;
+  font-size: 15.5px;
+  line-height: 1.58;
 }
 
 .dashboardHeader blockquote {
+  max-width: 39ch;
   margin: 14px 0 0;
-  padding-left: 12px;
+  padding-left: 14px;
   border-left: 2px solid var(--blue);
   color: var(--blue);
-  font-size: 13px;
+  font-size: 14.5px;
   font-style: italic;
-  line-height: 1.35;
+  line-height: 1.5;
 }
 
 .metrics {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  margin-left: 31px;
+  margin-left: 24px;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -1067,7 +1402,7 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  padding: 13px 7px 11px;
+  padding: 15px 8px 13px;
   border-right: 1px solid rgb(29 36 35 / 18%);
   text-align: center;
 }
@@ -1077,24 +1412,28 @@
 }
 
 .metrics strong {
-  font-size: 21px;
+  font-size: 27px;
   font-weight: 500;
   line-height: 1;
 }
 
 .metrics span {
-  margin-top: 5px;
-  color: var(--ink-soft);
-  font-size: 5px;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 .focusNotice {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 3px 12px;
-  margin: 15px 22px 0 43px;
-  padding: 10px 12px;
-  border: 1px solid rgb(21 63 92 / 34%);
+  gap: 5px 12px;
+  margin: 18px 22px 0 36px;
+  padding: 13px 14px;
+  border-top: 1px solid rgb(21 63 92 / 34%);
+  border-right: 0;
+  border-bottom: 1px solid rgb(21 63 92 / 34%);
+  border-left: 0;
   background: rgb(21 63 92 / 6%);
   animation: control-in 320ms ease both;
 }
@@ -1102,42 +1441,46 @@
 .focusNotice span {
   grid-column: 1 / -1;
   color: var(--blue);
-  font-size: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 .focusNotice strong {
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .focusNotice small {
   align-self: center;
   color: var(--ink-soft);
-  font-size: 5px;
+  font-size: 10.5px;
   text-align: right;
 }
 
 .dashboardSection {
-  padding: 19px 22px 0 43px;
+  padding: 22px 22px 0 36px;
 }
 
 .sectionTitle {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid rgb(29 36 35 / 48%);
 }
 
 .sectionTitle h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .sectionTitle span {
-  color: var(--ink-soft);
-  font-size: 6px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
 }
 
 .peopleList {
@@ -1146,23 +1489,30 @@
 
 .peopleList article {
   display: grid;
-  grid-template-columns: 19px 27px 1fr;
+  grid-template-columns: 24px 34px 1fr;
   align-items: center;
-  gap: 8px;
-  padding: 7px 4px;
+  gap: 10px;
+  min-height: 46px;
+  padding: 7px 6px;
   border-top: 1px dotted rgb(29 36 35 / 22%);
   transition: background 180ms ease, color 180ms ease;
 }
 
+.peopleList article:hover {
+  color: var(--blue);
+  background: rgb(21 63 92 / 5%);
+}
+
 .personIndex {
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
+  font-size: 10px;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .avatar {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   border: 1px solid rgb(29 36 35 / 38%);
@@ -1170,7 +1520,8 @@
   color: var(--paper);
   background: var(--blue);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 6px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
 }
 
 .peopleList article > span:last-child {
@@ -1181,7 +1532,11 @@
 
 .peopleList strong {
   overflow: hidden;
-  font-size: 10px;
+  /* 600 is the heaviest EB Garamond face loaded — declare it rather than
+     inheriting <strong>'s 700 and letting the browser pick for us. */
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1190,7 +1545,9 @@
   overflow: hidden;
   color: var(--ink-soft);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
+  font-size: 11.5px;
+  letter-spacing: 0.005em;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1201,17 +1558,33 @@
 }
 
 .subteamList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px dotted rgb(29 36 35 / 22%);
 }
 
 .subteamList > span {
-  padding: 5px 7px;
-  border: 1px solid rgb(29 36 35 / 21%);
-  background: rgb(255 255 255 / 26%);
+  min-width: 0;
+  padding: 10px 8px;
+  overflow: hidden;
+  border-bottom: 1px dotted rgb(29 36 35 / 22%);
+  background: transparent;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.subteamList > span:nth-child(odd) {
+  border-right: 1px dotted rgb(29 36 35 / 22%);
+}
+
+.subteamList > span:hover {
+  color: var(--blue);
+  background: rgb(21 63 92 / 5%);
 }
 
 .subteamList .focusedRow {
@@ -1223,39 +1596,53 @@
 .workList {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 0;
+  border-top: 1px dotted rgb(29 36 35 / 24%);
 }
 
 .workList article {
-  padding: 8px 9px;
-  border: 1px solid rgb(29 36 35 / 22%);
-  background: rgb(255 255 255 / 22%);
+  padding: 11px 5px 11px 7px;
+  border: 0;
+  border-bottom: 1px dotted rgb(29 36 35 / 24%);
+  background: transparent;
+  box-shadow: inset 0 0 var(--blue);
+  transition: background 180ms ease, box-shadow 180ms ease, padding 180ms ease;
+}
+
+.workList article:hover {
+  padding-right: 2px;
+  padding-left: 10px;
+  background: rgb(21 63 92 / 4%);
+  box-shadow: inset 2px 0 var(--blue);
 }
 
 .workTopline {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 22px 1fr auto;
   align-items: baseline;
-  gap: 5px;
+  gap: 7px;
 }
 
 .workTopline > span {
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5.5px;
+  font-size: 10px;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .workTopline strong {
-  font-size: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.28;
 }
 
 .workTopline em {
-  padding: 2px 4px;
+  padding: 3px 6px;
   border: 1px solid currentColor;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 5px;
+  font-size: 9.5px;
   font-style: normal;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -1279,14 +1666,16 @@
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 8px;
-  margin: 6px 0 5px 23px;
+  margin: 9px 0 8px 26px;
   color: var(--ink-soft);
-  font-size: 5px;
+  font-size: 11px;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.03em;
 }
 
 .progressTrack {
-  height: 2px;
-  margin-left: 23px;
+  height: 4px;
+  margin-left: 26px;
   background: rgb(29 36 35 / 12%);
 }
 
@@ -1296,14 +1685,170 @@
   background: var(--blue);
 }
 
+.taskControls {
+  display: grid;
+  grid-template-columns: auto 1px minmax(67px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0 0 26px;
+  opacity: 0.78;
+  transition: opacity 180ms ease;
+}
+
+.workList article:hover .taskControls,
+.workList article:focus-within .taskControls {
+  opacity: 1;
+}
+
+.taskControls button,
+.taskControls select {
+  min-height: 32px;
+  border: 0;
+  border-bottom: 1px solid rgb(29 36 35 / 32%);
+  border-radius: 0;
+  color: var(--blue);
+  background: transparent;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.035em;
+}
+
+.taskControls button {
+  padding: 2px 3px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.taskControls select {
+  width: 100%;
+  padding: 2px 16px 2px 4px;
+  cursor: pointer;
+}
+
+.taskControls button:hover,
+.taskControls button:focus-visible,
+.taskControls select:hover,
+.taskControls select:focus-visible {
+  outline: none;
+  border-bottom-color: var(--blue);
+  background: rgb(21 63 92 / 5%);
+}
+
+.taskControls button:disabled,
+.taskControls select:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.taskControlRule {
+  width: 1px;
+  height: 16px;
+  background: rgb(29 36 35 / 20%);
+}
+
+.customTimeTag {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 7px 0 1px 26px;
+  padding: 6px 8px;
+  border: 1px solid rgb(21 63 92 / 24%);
+  color: var(--blue);
+  background: rgb(21 63 92 / 4%);
+  font-family: 'IBM Plex Mono', monospace;
+  animation: control-in 260ms ease both;
+}
+
+.customTimeTag > span {
+  padding-right: 9px;
+  border-right: 1px solid rgb(21 63 92 / 20%);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.customTimeTag input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+  color-scheme: light;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.025em;
+}
+
+.customTimeTag:focus-within {
+  border-color: var(--blue);
+  background: rgb(21 63 92 / 7%);
+}
+
+.customTimeTag input:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.taskFeedback {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 18px;
+  margin: 6px 0 0 26px;
+  color: #5c7049;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.taskFeedback span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskFeedback strong {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+.taskFeedbackError,
+.taskFeedbackError strong {
+  color: #9d3f2c;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .dashboardFooter {
   display: flex;
   justify-content: space-between;
-  margin-top: 20px;
-  padding: 12px 22px 15px 43px;
+  margin-top: 22px;
+  padding: 14px 22px 16px 36px;
   border-top: 1px solid var(--rule);
-  color: var(--ink-soft);
-  font-size: 5px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  line-height: 1.35;
 }
 
 @keyframes planet-float {
@@ -1335,11 +1880,9 @@
 @keyframes orbit-draw {
   from {
     opacity: 0;
-    stroke-dashoffset: 22;
   }
   to {
     opacity: 1;
-    stroke-dashoffset: 0;
   }
 }
 
@@ -1351,6 +1894,26 @@
   to {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes system-orbit-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes satellite-reveal {
+  from {
+    opacity: 0;
+    transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(0.78);
+  }
+  to {
+    opacity: 1;
+    transform: translate(var(--satellite-tx), var(--satellite-ty)) scale(1);
   }
 }
 
@@ -1376,9 +1939,20 @@
   }
 }
 
+@keyframes sheet-in {
+  from {
+    opacity: 0.72;
+    transform: translateX(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (max-width: 1180px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 356px;
+    grid-template-columns: minmax(0, 1fr) 400px;
   }
 
   .planetButton {
@@ -1392,6 +1966,15 @@
 
   .dashboardHeader {
     padding-right: 20px;
+  }
+
+  /* At this width two columns can no longer hold the longest sub-team name. */
+  .subteamList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .subteamList > span:nth-child(odd) {
+    border-right: 0;
   }
 }
 
@@ -1423,6 +2006,10 @@
     grid-template-columns: 1fr;
   }
 
+  .workspace.workspaceCollapsed {
+    grid-template-columns: 1fr;
+  }
+
   .mapPanel {
     height: 70svh;
     min-height: 590px;
@@ -1444,7 +2031,7 @@
   }
 
   .chartFocused {
-    transform: translate3d(var(--camera-x), var(--camera-y), 0) scale(1.04);
+    --focus-zoom: 1.16;
   }
 
   .satellite {
@@ -1456,26 +2043,80 @@
   }
 
   .sidebar {
+    display: block;
     height: auto;
+    min-height: auto;
     padding: 18px;
   }
 
+  .sidebarCollapsed {
+    height: 52px;
+    min-height: 52px;
+    padding: 18px;
+  }
+
+  .sidebarCollapsed::after {
+    display: none;
+  }
+
   .bookmarkTab {
-    top: 7px;
+    top: 6px;
     left: 36px;
-    width: 88px;
-    height: 28px;
+    width: 126px;
+    height: 34px;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 9px;
+    padding: 0 15px 0 12px;
     clip-path: polygon(0 0, 86% 0, 100% 50%, 86% 100%, 0 100%);
   }
 
-  .bookmarkTab span {
-    margin: 0 -8px 0 0;
+  .sidebarCollapsed .bookmarkTab {
+    top: 6px;
+    left: 36px;
+  }
+
+  .bookmarkTab::before {
+    width: 6px;
+    height: 6px;
+    flex-basis: 6px;
+  }
+
+  .bookmarkTab span,
+  .bookmarkTab strong {
     writing-mode: horizontal-tb;
+  }
+
+  .bookmarkTab span {
+    font-size: 7px;
+  }
+
+  .bookmarkTab strong {
+    font-size: 8px;
+  }
+
+  .bookmarkTab i {
+    position: static;
+    align-self: center;
+    margin-left: auto;
+    font-size: 18px;
+    transform: none;
+  }
+
+  .bookmarkTab:hover i,
+  .sidebarCollapsed .bookmarkTab:hover i {
+    transform: translateX(2px);
   }
 
   .dashboard {
     height: auto;
+    max-height: none;
     overflow: visible;
+  }
+
+  .sidebarCollapsed .dashboard {
+    display: none;
   }
 }
 
@@ -1530,6 +2171,10 @@
     scale: 0.54;
   }
 
+  .chartFocused {
+    --focus-zoom: 1.08;
+  }
+
   .planetCaption strong {
     font-size: 10px;
   }
@@ -1545,32 +2190,50 @@
   }
 
   .dashboardTitleRow h2 {
-    font-size: 42px;
+    font-size: 34px;
   }
 
   .dashboardHeader,
   .dashboardSection,
   .dashboardFooter {
-    padding-left: 40px;
+    padding-left: 28px;
+  }
+
+  .taskControls {
+    grid-template-columns: 1fr 1px minmax(72px, 0.8fr) auto;
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .planetButton,
   .liveDot,
-  .networkActive {
+  .networkActive,
+  .satelliteVisible {
     animation: none;
   }
 
   .chart,
+  .planetButton,
   .planetVisual,
+  .planetCaption,
+  .planetHalo,
+  .networkLine,
+  .networkActive,
+  .satelliteNode,
   .satellite,
-  .mapIntro {
+  .mapIntro,
+  .workspace,
+  .sidebar,
+  .bookmarkTab,
+  .dashboard {
     transition-duration: 1ms;
   }
 
   .orbitLine,
   .populationPerson,
+  .systemOrbit,
+  .systemOrbitInner,
   .planetInFocus .planetHalo::before,
   .planetInFocus .planetHalo::after,
   .dashboardPlanet,
@@ -1665,4 +2328,14 @@
   color: var(--ink-soft);
   font-size: 8px;
   font-style: italic;
+}
+
+@media (prefers-contrast: more) {
+  .atlas::before {
+    opacity: 0.16;
+  }
+
+  .atlas::after {
+    opacity: 0.1;
+  }
 }

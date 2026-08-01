@@ -9,6 +9,7 @@ import type {
   PlanFollowupRequest,
   PlanHandoffManifest,
 } from '../lib/types';
+import type { Reminder } from '../lib/reminders';
 
 export interface DeltaResult {
   ok: boolean;
@@ -16,7 +17,17 @@ export interface DeltaResult {
 }
 
 export class GraphApi {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly workerSecret?: string,
+  ) {}
+
+  private workerHeaders(): HeadersInit {
+    return {
+      'content-type': 'application/json',
+      ...(this.workerSecret ? { 'x-athena-worker-secret': this.workerSecret } : {}),
+    };
+  }
 
   /** POST /api/ingest - run Issue #6 document extraction and apply its Delta. */
   async ingestText(text: string): Promise<Delta> {
@@ -110,5 +121,35 @@ export class GraphApi {
       throw new Error(`POST /api/delta -> ${res.status} ${res.statusText} ${detail}`.trim());
     }
     return (await res.json()) as DeltaResult;
+  }
+
+  /** Atomically lease reminders that are due. */
+  async claimDueReminders(): Promise<Reminder[]> {
+    const res = await fetch(`${this.baseUrl}/api/reminders/claim`, {
+      method: 'POST',
+      headers: this.workerHeaders(),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`POST /api/reminders/claim -> ${res.status} ${detail}`.trim());
+    }
+    const payload = await res.json() as { reminders: Reminder[] };
+    return payload.reminders;
+  }
+
+  /** Release a reminder lease with its Discord delivery result. */
+  async finishReminder(
+    id: string,
+    outcome: { sent: true; messageId: string } | { sent: false; error: string },
+  ): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/api/reminders/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: this.workerHeaders(),
+      body: JSON.stringify(outcome),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(`PATCH /api/reminders/${id} -> ${res.status} ${detail}`.trim());
+    }
   }
 }

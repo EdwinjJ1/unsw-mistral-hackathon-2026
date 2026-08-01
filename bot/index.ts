@@ -21,7 +21,7 @@ import { startFollowupPoller, startPlanDispatcher, startScheduler } from './sche
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const api = new GraphApi(config.apiBaseUrl);
+  const api = new GraphApi(config.apiBaseUrl, config.reminderWorkerSecret);
 
   const client = new Client({
     intents: [
