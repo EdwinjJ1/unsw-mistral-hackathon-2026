@@ -650,9 +650,9 @@
 .populationPerson {
   --person-delay: 0ms;
   position: absolute;
-  z-index: 5;
-  width: 9px;
-  height: 9px;
+  z-index: 10;
+  width: 12px;
+  height: 12px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -692,7 +692,7 @@
   background: rgb(250 247 239 / 96%);
   box-shadow: 2px 3px 8px rgb(31 36 34 / 12%);
   content: attr(data-person);
-  font: 500 6px/1 'IBM Plex Mono', monospace;
+  font: 500 9px/1 'IBM Plex Mono', monospace;
   letter-spacing: .04em;
   opacity: 0;
   pointer-events: none;
@@ -722,7 +722,7 @@
 .populationPerson:hover::after,
 .populationPerson:focus-visible::after {
   opacity: 1;
-  transform: translate(-50%, 0) scale(.72);
+  transform: translate(-50%, 0);
 }
 
 .populationPersonSelected {
