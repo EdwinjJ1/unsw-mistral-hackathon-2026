@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { CSSProperties, DragEvent } from 'react';
+import type { CSSProperties, DragEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchGraph, ingestFiles } from '@/lib/client-api';
 import type { Graph, IngestResult, Status } from '@/lib/types';
@@ -622,8 +622,120 @@ function ConstellationMap({
   const highlightedId = isFocused ? selected.id : hoveredId ?? selected.id;
   const satelliteOffsets = isFocused ? FOCUSED_SATELLITE_OFFSETS : SATELLITE_OFFSETS;
   const focusPlanetScale = Math.min(2.25, Math.max(1.18, 210 / selected.size));
+
+  const panelRef = useRef<HTMLElement | null>(null);
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const dragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const viewMoved = view.x !== 0 || view.y !== 0 || view.scale !== 1;
+
+  const clampView = (next: { x: number; y: number; scale: number }) => {
+    const panel = panelRef.current;
+    const limitX = (panel?.clientWidth ?? 1200) * 0.75 * next.scale;
+    const limitY = (panel?.clientHeight ?? 900) * 0.75 * next.scale;
+    return {
+      scale: next.scale,
+      x: Math.min(limitX, Math.max(-limitX, next.x)),
+      y: Math.min(limitY, Math.max(-limitY, next.y)),
+    };
+  };
+  const clampViewRef = useRef(clampView);
+  clampViewRef.current = clampView;
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const current = viewRef.current;
+      if (event.ctrlKey || event.metaKey) {
+        const rect = panel.getBoundingClientRect();
+        const pointerX = event.clientX - (rect.left + rect.width / 2);
+        const pointerY = event.clientY - (rect.top + rect.height / 2);
+        const nextScale = Math.min(2.6, Math.max(0.55, current.scale * Math.exp(-event.deltaY * 0.0022)));
+        const ratio = nextScale / current.scale;
+        setView(clampViewRef.current({
+          scale: nextScale,
+          x: pointerX - ratio * (pointerX - current.x),
+          y: pointerY - ratio * (pointerY - current.y),
+        }));
+      } else {
+        setView(clampViewRef.current({
+          scale: current.scale,
+          x: current.x - event.deltaX,
+          y: current.y - event.deltaY,
+        }));
+      }
+    };
+    panel.addEventListener('wheel', onWheel, { passive: false });
+    return () => panel.removeEventListener('wheel', onWheel);
+  }, []);
+
+  useEffect(() => {
+    setView({ x: 0, y: 0, scale: 1 });
+  }, [isFocused]);
+
+  const beginPan = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: viewRef.current.x,
+      originY: viewRef.current.y,
+      moved: false,
+    };
+  };
+
+  const movePan = (event: ReactPointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved) {
+      if (Math.hypot(dx, dy) < 5) return;
+      drag.moved = true;
+      setIsPanning(true);
+      panelRef.current?.setPointerCapture?.(event.pointerId);
+    }
+    setView(clampView({ scale: viewRef.current.scale, x: drag.originX + dx, y: drag.originY + dy }));
+  };
+
+  const endPan = (event: ReactPointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.moved) suppressClickRef.current = true;
+    dragRef.current = null;
+    setIsPanning(false);
+    if (panelRef.current?.hasPointerCapture?.(event.pointerId)) {
+      panelRef.current.releasePointerCapture(event.pointerId);
+    }
+  };
+
   return (
-    <section className={`${styles.mapPanel} ${isFocused ? styles.mapPanelFocused : ''}`} aria-label="Interactive organisation constellation">
+    <section
+      ref={panelRef}
+      className={[
+        styles.mapPanel,
+        isFocused ? styles.mapPanelFocused : '',
+        isPanning ? styles.mapPanelPanning : '',
+      ].join(' ')}
+      aria-label="Interactive organisation constellation"
+      onPointerDown={beginPan}
+      onPointerMove={movePan}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+      onClickCapture={(event) => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+    >
       <div className={styles.mapIntro}>
         <p>{isFocused ? `${selected.code} / FOCUSED SUB-SYSTEM` : '01 / LIVING ORGANISATION'}</p>
         <h1>{isFocused ? selected.name : 'One company'},<br /><em>in orbit.</em></h1>
@@ -634,6 +746,20 @@ function ConstellationMap({
           <span>←</span> ALL DEPARTMENTS
         </button>
       )}
+      {viewMoved && (
+        <button
+          type="button"
+          className={styles.recenterView}
+          onClick={() => setView({ x: 0, y: 0, scale: 1 })}
+          aria-label="Recenter the constellation map"
+        >
+          <span>⌖</span> RECENTER
+        </button>
+      )}
+      <div
+        className={styles.chartPan}
+        style={{ transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})` }}
+      >
       <div
         className={`${styles.chart} ${isFocused ? styles.chartFocused : ''}`}
         style={{
@@ -800,6 +926,7 @@ function ConstellationMap({
             </div>
           );
         })}
+      </div>
       </div>
       <MapLegend isFocused={isFocused} />
       <div className={styles.mapIndex}>ATHENA / PLATE No. 07</div>
