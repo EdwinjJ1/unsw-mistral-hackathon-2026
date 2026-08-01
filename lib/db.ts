@@ -37,6 +37,27 @@ CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_id);
 CREATE INDEX IF NOT EXISTS idx_edges_to   ON edges(to_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
 
+CREATE TABLE IF NOT EXISTS reminders (
+  id                 TEXT PRIMARY KEY,
+  task_key           TEXT NOT NULL,
+  title              TEXT NOT NULL,
+  owner              TEXT NOT NULL,
+  team               TEXT NOT NULL,
+  due_label          TEXT NOT NULL,
+  progress           INTEGER NOT NULL CHECK (progress >= 0 AND progress <= 100),
+  task_state         TEXT NOT NULL CHECK (task_state IN ('Active', 'Review', 'Blocked')),
+  channel_id         TEXT NOT NULL,
+  remind_at          TEXT NOT NULL,
+  status             TEXT NOT NULL CHECK (status IN ('queued', 'processing', 'sent', 'failed')),
+  attempts           INTEGER NOT NULL DEFAULT 0,
+  discord_message_id TEXT,
+  last_error         TEXT,
+  created_at         TEXT NOT NULL,
+  updated_at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, remind_at);
+CREATE INDEX IF NOT EXISTS idx_reminders_task ON reminders(task_key, status);
+
 CREATE TABLE IF NOT EXISTS plan_deliveries (
   id          TEXT PRIMARY KEY,
   sourceName  TEXT NOT NULL,
@@ -99,6 +120,7 @@ export function getDb(): Database.Database {
 export function resetDb(): void {
   const db = getDb();
   db.transaction(() => {
+    db.prepare('DELETE FROM reminders').run();
     db.prepare('DELETE FROM edges').run();
     db.prepare('DELETE FROM nodes').run();
   })();

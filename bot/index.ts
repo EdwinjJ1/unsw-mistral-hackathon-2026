@@ -21,7 +21,7 @@ import { startPlanDispatcher, startScheduler } from './scheduler';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const api = new GraphApi(config.apiBaseUrl);
+  const api = new GraphApi(config.apiBaseUrl, config.reminderWorkerSecret);
 
   const client = new Client({
     intents: [

@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchGraph } from '@/lib/client-api';
 import type { Graph, Status } from '@/lib/types';
 import styles from './constellation.module.css';
@@ -16,6 +16,17 @@ type WorkItem = {
   progress: number;
   due: string;
   state: 'Active' | 'Review' | 'Blocked' | 'Done';
+};
+type ReminderPreset = '15' | '60' | '1440' | 'custom';
+type ActionStatus = {
+  busy?: 'push' | 'remind';
+  message?: string;
+  tone?: 'success' | 'error';
+};
+type ReminderSummary = {
+  taskKey: string;
+  remindAt: string;
+  status: 'queued' | 'processing';
 };
 type Department = {
   id: string;
@@ -36,7 +47,7 @@ type Department = {
 const ART_DEPARTMENTS: Department[] = [
   {
     id: 'engineering', name: 'Engineering', code: 'ENG · 01',
-    image: '/planets/cutouts/earth.webp', x: 15, y: 49, size: 224, health: 'Watch',
+    image: '/planets/cutouts/earth.webp', x: 17, y: 48, size: 212, health: 'Watch',
     description: 'Builds and protects the product foundation: platform, client applications, infrastructure and release systems.',
     mission: 'Make every product promise technically real, resilient and repeatable.',
     people: [
@@ -54,7 +65,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'product', name: 'Product', code: 'PRD · 02',
-    image: '/planets/cutouts/jupiter.webp', x: 38, y: 18, size: 106, health: 'On track',
+    image: '/planets/cutouts/jupiter.webp', x: 39, y: 20, size: 96, health: 'On track',
     description: 'Turns company strategy and customer evidence into a coherent roadmap, measurable bets and clear product decisions.',
     mission: 'Choose the smallest set of valuable problems that move the whole company forward.',
     people: [
@@ -72,7 +83,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'design', name: 'Design', code: 'DSN · 03',
-    image: '/planets/cutouts/saturn.webp', x: 60, y: 28, size: 126, health: 'On track',
+    image: '/planets/cutouts/saturn.webp', x: 61, y: 29, size: 112, health: 'On track',
     description: 'Shapes how Athena feels and works across product, brand and research, maintaining a single expressive design language.',
     mission: 'Turn complexity into calm, useful and memorable experiences.',
     people: [
@@ -90,7 +101,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'research', name: 'Research', code: 'RSH · 04',
-    image: '/planets/cutouts/neptune.webp', x: 78, y: 13, size: 88, health: 'On track',
+    image: '/planets/cutouts/neptune.webp', x: 82, y: 18, size: 82, health: 'On track',
     description: 'Explores emerging capabilities, evaluates model behaviour and creates the evidence that informs future product bets.',
     mission: 'Reduce uncertainty before it becomes expensive.',
     people: [
@@ -108,7 +119,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'operations', name: 'Operations', code: 'OPS · 05',
-    image: '/planets/cutouts/mars.webp', x: 48, y: 61, size: 98, health: 'At risk',
+    image: '/planets/cutouts/mars.webp', x: 41, y: 54, size: 86, health: 'At risk',
     description: 'Connects plans to dependable execution through programmes, business systems, launch readiness and operating cadence.',
     mission: 'Make the company easier to run every week.',
     people: [
@@ -126,7 +137,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'people', name: 'People', code: 'PPL · 06',
-    image: '/planets/cutouts/venus.webp', x: 72, y: 54, size: 90, health: 'On track',
+    image: '/planets/cutouts/venus.webp', x: 65, y: 53, size: 84, health: 'On track',
     description: 'Designs the systems that help people join, grow, collaborate and do the best work of their careers.',
     mission: 'Create an environment where talented people can compound.',
     people: [
@@ -144,7 +155,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'growth', name: 'Growth', code: 'GRO · 07',
-    image: '/planets/cutouts/sun.webp', x: 32, y: 82, size: 86, health: 'Watch',
+    image: '/planets/cutouts/sun.webp', x: 28, y: 76, size: 76, health: 'Watch',
     description: 'Creates demand and durable customer relationships across brand, lifecycle, community and strategic partnerships.',
     mission: 'Help the right people discover, understand and keep choosing Athena.',
     people: [
@@ -162,7 +173,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'finance', name: 'Finance', code: 'FIN · 08',
-    image: '/planets/cutouts/mercury.webp', x: 62, y: 84, size: 78, health: 'On track',
+    image: '/planets/cutouts/mercury.webp', x: 49, y: 77, size: 72, health: 'On track',
     description: 'Gives teams the financial clarity to invest wisely through planning, analysis, procurement and reporting.',
     mission: 'Put timely, trustworthy economics behind every important decision.',
     people: [
@@ -180,7 +191,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'legal', name: 'Legal', code: 'LGL · 09',
-    image: '/planets/cutouts/moon.webp', x: 87, y: 80, size: 72, health: 'Watch',
+    image: '/planets/cutouts/moon.webp', x: 70, y: 75, size: 68, health: 'Watch',
     description: 'Protects the company and enables responsible speed across product counsel, privacy, commercial work and governance.',
     mission: 'Make the safest path the clearest path.',
     people: [
@@ -198,7 +209,7 @@ const ART_DEPARTMENTS: Department[] = [
   },
   {
     id: 'strategy', name: 'Strategy', code: 'STG · 10',
-    image: '/planets/cutouts/strategic.webp', x: 87, y: 39, size: 96, health: 'On track',
+    image: '/planets/cutouts/strategic.webp', x: 84, y: 41, size: 86, health: 'On track',
     description: 'Holds the long view, joins signals across the company and turns ambiguity into a few consequential choices.',
     mission: 'Keep every team moving toward the same future.',
     people: [
@@ -219,9 +230,18 @@ const ART_DEPARTMENTS: Department[] = [
 const SATELLITE_OFFSETS = [
   { x: -8, y: -10 }, { x: 9, y: -8 }, { x: -10, y: 10 }, { x: 10, y: 10 },
 ];
+const FOCUSED_SATELLITE_OFFSETS = [
+  { x: -17, y: -16 }, { x: 17, y: -14 }, { x: -18, y: 16 }, { x: 18, y: 15 },
+];
 const HEALTH_CLASS: Record<Health, string> = {
   'On track': styles.healthGood, Watch: styles.healthWatch, 'At risk': styles.healthRisk,
 };
+
+function localDateTimeValue(timestamp: number): string {
+  const date = new Date(timestamp);
+  const localTimestamp = timestamp - date.getTimezoneOffset() * 60_000;
+  return new Date(localTimestamp).toISOString().slice(0, 16);
+}
 
 function statusToWork(status?: Status): WorkItem['state'] {
   if (status === 'done') return 'Done';
@@ -323,12 +343,12 @@ function AtlasHeader({ teams, bodies, live }: { teams: number; bodies: number; l
   );
 }
 
-function MapLegend() {
+function MapLegend({ isFocused }: { isFocused: boolean }) {
   return (
     <div className={styles.legend}>
-      <span className={styles.legendPlanet} /><span>Department</span>
-      <span className={styles.legendMoon} /><span>Hover for orbit</span>
-      <span className={styles.legendLine} /><span>Collaboration</span>
+      <span className={styles.legendPlanet} /><span>{isFocused ? 'Department core' : 'Department'}</span>
+      <span className={styles.legendMoon} /><span>{isFocused ? 'People / sub-team' : 'Hover for orbit'}</span>
+      <span className={styles.legendLine} /><span>{isFocused ? 'Focused orbit' : 'Collaboration'}</span>
     </div>
   );
 }
@@ -348,29 +368,32 @@ function ConstellationMap({
   onReset: () => void;
 }) {
   const byId = useMemo(() => new Map(departments.map((item) => [item.id, item])), [departments]);
-  const highlightedId = hoveredId ?? selected.id;
-  const cameraStyle = {
-    '--camera-x': `${50 - selected.x}%`,
-    '--camera-y': `${51 - selected.y}%`,
-  } as CSSProperties;
-
+  const orbitingId = isFocused ? selected.id : hoveredId;
+  const highlightedId = isFocused ? selected.id : hoveredId ?? selected.id;
+  const satelliteOffsets = isFocused ? FOCUSED_SATELLITE_OFFSETS : SATELLITE_OFFSETS;
+  const focusPlanetScale = Math.min(2.25, Math.max(1.18, 210 / selected.size));
   return (
     <section className={`${styles.mapPanel} ${isFocused ? styles.mapPanelFocused : ''}`} aria-label="Interactive organisation constellation">
       <div className={styles.mapIntro}>
-        <p>01 / LIVING ORGANISATION</p>
-        <h1>One company,<br /><em>in orbit.</em></h1>
-        <span>Hover to reveal · Select to explore</span>
+        <p>{isFocused ? `${selected.code} / FOCUSED SUB-SYSTEM` : '01 / LIVING ORGANISATION'}</p>
+        <h1>{isFocused ? selected.name : 'One company'},<br /><em>in orbit.</em></h1>
+        <span>{isFocused ? '04 satellites · Esc to return' : 'Hover to reveal · Select to magnify'}</span>
       </div>
       {isFocused && (
         <button type="button" className={styles.resetView} onClick={onReset}>
-          <span>←</span> RETURN TO CONSTELLATION
+          <span>←</span> ALL DEPARTMENTS
         </button>
       )}
       <div
         className={`${styles.chart} ${isFocused ? styles.chartFocused : ''}`}
-        style={cameraStyle}
+        style={{
+          '--focus-x': `${52 - selected.x}%`,
+          '--focus-y': `${54 - selected.y}%`,
+          '--focus-origin-x': `${selected.x}%`,
+          '--focus-origin-y': `${selected.y}%`,
+        } as CSSProperties}
       >
-        <svg className={styles.network} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <svg className={`${styles.network} ${isFocused ? styles.networkFocused : ''}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           {links.map(([fromId, toId], index) => {
             const from = byId.get(fromId);
             const to = byId.get(toId);
@@ -384,12 +407,30 @@ function ConstellationMap({
               />
             );
           })}
-          {hoveredId && SATELLITE_OFFSETS.map((offset, index) => {
-            const department = byId.get(hoveredId);
+          {isFocused && (
+            <>
+              <ellipse
+                cx={selected.x}
+                cy={selected.y}
+                rx="18"
+                ry="16"
+                className={styles.systemOrbit}
+              />
+              <ellipse
+                cx={selected.x}
+                cy={selected.y}
+                rx="13"
+                ry="11.5"
+                className={styles.systemOrbitInner}
+              />
+            </>
+          )}
+          {orbitingId && satelliteOffsets.map((offset, index) => {
+            const department = byId.get(orbitingId);
             if (!department) return null;
             return (
               <path
-                key={`${hoveredId}-orbit-${index}`}
+                key={`${orbitingId}-${isFocused ? 'focus' : 'preview'}-orbit-${index}`}
                 d={`M ${department.x} ${department.y} Q ${department.x + offset.x * 0.52 + (index % 2 ? 1.4 : -1.4)} ${department.y + offset.y * 0.38} ${department.x + offset.x} ${department.y + offset.y}`}
                 className={styles.orbitLine}
               />
@@ -398,7 +439,11 @@ function ConstellationMap({
         </svg>
         {departments.map((department, departmentIndex) => {
           const isSelected = department.id === selected.id;
-          const isOrbiting = department.id === hoveredId;
+          const isOrbiting = department.id === orbitingId;
+          const focusDistance = Math.hypot(department.x - selected.x, department.y - selected.y);
+          const departmentSatelliteOffsets = isSelected && isFocused
+            ? FOCUSED_SATELLITE_OFFSETS
+            : SATELLITE_OFFSETS;
           const orbitDetails = [
             ...department.people.slice(0, 2).map((person) => ({ label: person.name, meta: person.role, size: 16 })),
             ...department.subteams.slice(0, 2).map((label) => ({ label, meta: 'Connected team', size: 21 })),
@@ -412,19 +457,24 @@ function ConstellationMap({
                   styles.planetButton,
                   isSelected ? styles.planetSelected : '',
                   isSelected && isFocused ? styles.planetInFocus : '',
+                  isFocused && !isSelected ? styles.planetOutOfFocus : '',
                   hoveredId && !isOrbiting ? styles.planetMuted : '',
                 ].join(' ')}
                 style={{
                   left: `${department.x}%`, top: `${department.y}%`,
                   width: department.size, height: department.size, zIndex: isOrbiting ? 9 : isSelected ? 8 : 4,
                   '--float-delay': `${departmentIndex * -0.7}s`,
+                  '--exit-delay': `${Math.max(0, 120 - Math.min(120, focusDistance * 2))}ms`,
+                  '--focus-planet-scale': isSelected ? focusPlanetScale : 1,
                 } as CSSProperties}
                 onClick={() => onSelect(department)}
                 onMouseEnter={() => onHoverStart(department.id)}
                 onMouseLeave={onHoverEnd}
                 onFocus={() => onHoverStart(department.id)}
                 onBlur={onHoverEnd}
-                aria-label={`Open ${department.name} department`}
+                tabIndex={isFocused && !isSelected ? -1 : 0}
+                aria-hidden={isFocused && !isSelected}
+                aria-label={isSelected && isFocused ? `Exit ${department.name} focus` : `Focus ${department.name} department`}
                 aria-pressed={isSelected && isFocused}
               >
                 <span className={styles.planetVisual}>
@@ -433,17 +483,36 @@ function ConstellationMap({
                 </span>
                 <span className={styles.planetCaption}><strong>{department.name}</strong><small>{department.code}</small></span>
               </button>
-              {SATELLITE_OFFSETS.slice(0, orbitDetails.length).map((offset, index) => {
+              {(isOrbiting || isSelected) && departmentSatelliteOffsets.slice(0, orbitDetails.length).map((offset, index) => {
                 const detail = orbitDetails[index];
+                const satelliteX = department.x + offset.x;
+                const satelliteY = department.y + offset.y;
+                const anchorX = isFocused
+                  ? offset.x > 0 ? '0%' : '-100%'
+                  : satelliteX >= 82 ? '-100%' : satelliteX <= 18 ? '0%' : '-50%';
+                const anchorY = isFocused
+                  ? offset.y > 0 ? '0%' : '-100%'
+                  : satelliteY >= 84 ? '-100%' : satelliteY <= 15 ? '0%' : '-50%';
                 return (
-                  <Fragment key={`${department.id}-${detail.label}`}>
+                  <div
+                    key={`${department.id}-${detail.label}`}
+                    className={`${styles.satelliteNode} ${isOrbiting ? styles.satelliteNodeActive : ''}`}
+                    style={{
+                      '--satellite-x': `${satelliteX - 50}%`,
+                      '--satellite-y': `${satelliteY - 50}%`,
+                    } as CSSProperties}
+                  >
                     <button
                       type="button"
-                      className={`${styles.satellite} ${isOrbiting ? styles.satelliteVisible : ''}`}
+                      className={[
+                        styles.satellite,
+                        isOrbiting ? styles.satelliteVisible : '',
+                        isSelected && isFocused ? styles.satelliteInFocus : '',
+                      ].join(' ')}
                       style={{
-                        left: `${department.x + offset.x}%`,
-                        top: `${department.y + offset.y}%`,
                         '--satellite-delay': `${index * 42}ms`,
+                        '--satellite-tx': anchorX,
+                        '--satellite-ty': anchorY,
                       } as CSSProperties}
                       onMouseEnter={() => onHoverStart(department.id)}
                       onMouseLeave={onHoverEnd}
@@ -457,39 +526,196 @@ function ConstellationMap({
                       <Image src="/planets/cutouts/moon.webp" width={detail.size} height={detail.size} alt="" />
                       <span><strong>{detail.label}</strong><small>{detail.meta}</small></span>
                     </button>
-                  </Fragment>
+                  </div>
                 );
               })}
             </div>
           );
         })}
       </div>
-      <MapLegend />
+      <MapLegend isFocused={isFocused} />
       <div className={styles.mapIndex}>ATHENA / PLATE No. 07</div>
     </section>
   );
 }
 
-function Dashboard({ department, focused }: { department: Department; focused: string | null }) {
+function Dashboard({
+  department, focused, collapsed, onToggle,
+}: {
+  department: Department;
+  focused: string | null;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const activeWork = department.work.filter((item) => item.state === 'Active').length;
   const averageProgress = department.work.length
     ? Math.round(department.work.reduce((sum, item) => sum + item.progress, 0) / department.work.length)
     : 0;
+  const [presetByTask, setPresetByTask] = useState<Record<string, ReminderPreset>>({});
+  const [customTimeByTask, setCustomTimeByTask] = useState<Record<string, string>>({});
+  const [actionByTask, setActionByTask] = useState<Record<string, ActionStatus>>({});
+  const [reminderByTask, setReminderByTask] = useState<Record<string, string>>({});
+  const [now, setNow] = useState(() => Date.now());
+
+  const taskKey = (index: number) => `${department.id}:${index}`;
+  const taskPayload = (work: WorkItem, index: number) => ({
+    taskKey: taskKey(index),
+    title: work.title,
+    owner: work.owner,
+    team: department.name,
+    due: work.due,
+    progress: work.progress,
+    state: work.state,
+  });
+
+  useEffect(() => {
+    let active = true;
+    void fetch('/api/reminders')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Unable to load reminders');
+        return response.json() as Promise<{ reminders: ReminderSummary[] }>;
+      })
+      .then(({ reminders }) => {
+        if (!active) return;
+        const next: Record<string, string> = {};
+        for (const reminder of reminders) {
+          if (
+            reminder.taskKey.startsWith(`${department.id}:`)
+            && (!next[reminder.taskKey] || reminder.remindAt < next[reminder.taskKey])
+          ) {
+            next[reminder.taskKey] = reminder.remindAt;
+          }
+        }
+        setReminderByTask(next);
+      })
+      .catch(() => {
+        // The task controls remain usable even if restoring a prior countdown fails.
+      });
+    return () => {
+      active = false;
+    };
+  }, [department.id]);
+
+  useEffect(() => {
+    if (Object.keys(reminderByTask).length === 0) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [reminderByTask]);
+
+  const responseError = async (response: Response): Promise<string> => {
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    return payload.error || `Request failed (${response.status})`;
+  };
+
+  const pushTask = async (work: WorkItem, index: number) => {
+    const key = taskKey(index);
+    setActionByTask((current) => ({ ...current, [key]: { busy: 'push' } }));
+    try {
+      const response = await fetch('/api/discord/tasks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(taskPayload(work, index)),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      setActionByTask((current) => ({
+        ...current,
+        [key]: { message: 'Pushed to Discord', tone: 'success' },
+      }));
+    } catch (error) {
+      setActionByTask((current) => ({
+        ...current,
+        [key]: {
+          message: error instanceof Error ? error.message : 'Push failed',
+          tone: 'error',
+        },
+      }));
+    }
+  };
+
+  const scheduleReminder = async (work: WorkItem, index: number) => {
+    const key = taskKey(index);
+    const preset = presetByTask[key] ?? '15';
+    const customTime = customTimeByTask[key];
+    const reminderTimestamp = preset === 'custom'
+      ? new Date(customTime ?? '').getTime()
+      : Date.now() + Number(preset) * 60_000;
+
+    if (!Number.isFinite(reminderTimestamp) || reminderTimestamp < Date.now() + 5_000) {
+      setActionByTask((current) => ({
+        ...current,
+        [key]: { message: 'Choose a future time', tone: 'error' },
+      }));
+      return;
+    }
+
+    const remindAt = new Date(reminderTimestamp).toISOString();
+    setActionByTask((current) => ({ ...current, [key]: { busy: 'remind' } }));
+    try {
+      const response = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ task: taskPayload(work, index), remindAt }),
+      });
+      if (!response.ok) throw new Error(await responseError(response));
+      setNow(Date.now());
+      setReminderByTask((current) => ({ ...current, [key]: remindAt }));
+      setActionByTask((current) => ({
+        ...current,
+        [key]: { message: 'Reminder queued', tone: 'success' },
+      }));
+    } catch (error) {
+      setActionByTask((current) => ({
+        ...current,
+        [key]: {
+          message: error instanceof Error ? error.message : 'Reminder failed',
+          tone: 'error',
+        },
+      }));
+    }
+  };
+
+  const countdown = (remindAt: string): string => {
+    const remaining = Math.max(0, Date.parse(remindAt) - now);
+    if (remaining === 0) return 'SENDING…';
+    const totalSeconds = Math.ceil(remaining / 1_000);
+    const hours = Math.floor(totalSeconds / 3_600);
+    const minutes = Math.floor((totalSeconds % 3_600) / 60);
+    const seconds = totalSeconds % 60;
+    return hours > 0
+      ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
   return (
-    <aside className={styles.sidebar} aria-live="polite">
-      <div className={styles.bookmarkTab} aria-hidden="true"><span>{department.code}</span></div>
-      <div className={styles.dashboard}>
+    <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
+      <button
+        type="button"
+        className={styles.bookmarkTab}
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-controls="department-details"
+        aria-label={collapsed ? 'Expand department details' : 'Collapse department details'}
+      >
+        <span>{collapsed ? 'OPEN' : 'INDEX'}</span>
+        <strong>{department.code}</strong>
+        <i aria-hidden="true">{collapsed ? '‹' : '›'}</i>
+      </button>
+      <div id="department-details" className={styles.dashboard} aria-hidden={collapsed}>
         <header className={styles.dashboardHeader}>
           <div className={styles.recordLine}>
             <p>SELECTED RECORD</p>
             <span>{department.code}</span>
           </div>
           <div className={styles.dashboardTitleRow}>
-            <div>
+            <div className={styles.dashboardTitleCopy}>
               <h2>{department.name}</h2>
               <span className={`${styles.health} ${HEALTH_CLASS[department.health]}`}><i /> {department.health}</span>
             </div>
-            <span className={styles.dashboardPlanet}><Image src={department.image} fill sizes="72px" alt="" /></span>
+            <span className={styles.dashboardPlanet}>
+              <span className={styles.dashboardPlanetArt}>
+                <Image src={department.image} fill sizes="76px" alt="" />
+              </span>
+            </span>
           </div>
           <p className={styles.description}>{department.description}</p>
           <blockquote>“{department.mission}”</blockquote>
@@ -537,6 +763,80 @@ function Dashboard({ department, focused }: { department: Department; focused: s
                 </div>
                 <div className={styles.workMeta}><span>{work.owner}</span><span>{work.due}</span><span>{work.progress}%</span></div>
                 <div className={styles.progressTrack}><i style={{ width: `${work.progress}%` }} /></div>
+                {/* Push and reminder routes only accept live states, so finished work shows no controls. */}
+                {work.state !== 'Done' && (
+                <div className={styles.taskControls}>
+                  <button
+                    type="button"
+                    onClick={() => void pushTask(work, index)}
+                    disabled={Boolean(actionByTask[taskKey(index)]?.busy)}
+                  >
+                    {actionByTask[taskKey(index)]?.busy === 'push' ? 'PUSHING…' : 'PUSH DISCORD'}
+                  </button>
+                  <span className={styles.taskControlRule} aria-hidden="true" />
+                  <label>
+                    <span className={styles.srOnly}>Reminder time for {work.title}</span>
+                    <select
+                      value={presetByTask[taskKey(index)] ?? '15'}
+                      onChange={(event) => {
+                        const key = taskKey(index);
+                        const value = event.target.value as ReminderPreset;
+                        setPresetByTask((current) => ({ ...current, [key]: value }));
+                        if (value === 'custom' && !customTimeByTask[key]) {
+                          setCustomTimeByTask((current) => ({
+                            ...current,
+                            [key]: localDateTimeValue(Date.now() + 60 * 60_000),
+                          }));
+                        }
+                      }}
+                      disabled={Boolean(actionByTask[taskKey(index)]?.busy)}
+                    >
+                      <option value="15">15 MIN</option>
+                      <option value="60">1 HOUR</option>
+                      <option value="1440">1 DAY</option>
+                      <option value="custom">CUSTOM…</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void scheduleReminder(work, index)}
+                    disabled={Boolean(actionByTask[taskKey(index)]?.busy)}
+                  >
+                    {actionByTask[taskKey(index)]?.busy === 'remind' ? 'QUEUING…' : 'REMIND'}
+                  </button>
+                </div>
+                )}
+                {work.state !== 'Done' && (presetByTask[taskKey(index)] ?? '15') === 'custom' && (
+                  <label className={styles.customTimeTag}>
+                    <span>CUSTOM TIME</span>
+                    <input
+                      type="datetime-local"
+                      value={customTimeByTask[taskKey(index)] ?? ''}
+                      min={localDateTimeValue(Date.now() + 60_000)}
+                      onChange={(event) => setCustomTimeByTask((current) => ({
+                        ...current,
+                        [taskKey(index)]: event.target.value,
+                      }))}
+                      disabled={Boolean(actionByTask[taskKey(index)]?.busy)}
+                      aria-label={`Custom reminder time for ${work.title}`}
+                    />
+                  </label>
+                )}
+                {(actionByTask[taskKey(index)]?.message || reminderByTask[taskKey(index)]) && (
+                  <div
+                    className={`${styles.taskFeedback} ${
+                      actionByTask[taskKey(index)]?.tone === 'error' ? styles.taskFeedbackError : ''
+                    }`}
+                    aria-live="polite"
+                  >
+                    <span>{actionByTask[taskKey(index)]?.message}</span>
+                    {reminderByTask[taskKey(index)] && (
+                      <strong>
+                        REMIND IN {countdown(reminderByTask[taskKey(index)])}
+                      </strong>
+                    )}
+                  </div>
+                )}
               </article>
             ))}
           </div>
@@ -557,6 +857,7 @@ export function ConstellationDashboard() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [isMapFocused, setIsMapFocused] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selected = departments.find((item) => item.id === selectedId) ?? departments[0];
 
@@ -619,7 +920,7 @@ export function ConstellationDashboard() {
   return (
     <main className={styles.atlas}>
       <AtlasHeader teams={departments.length} bodies={graph.nodes.length} live={backendAvailable} />
-      <div className={styles.workspace}>
+      <div className={`${styles.workspace} ${isSidebarCollapsed ? styles.workspaceCollapsed : ''}`}>
         <ConstellationMap
           departments={departments}
           links={links}
@@ -629,6 +930,12 @@ export function ConstellationDashboard() {
           onHoverStart={startHover}
           onHoverEnd={endHover}
           onSelect={(department) => {
+            if (isMapFocused && selectedId === department.id) {
+              setIsMapFocused(false);
+              setFocused(null);
+              setHoveredId(null);
+              return;
+            }
             setSelectedId(department.id);
             setFocused(null);
             setIsMapFocused(true);
@@ -641,9 +948,16 @@ export function ConstellationDashboard() {
           onReset={() => {
             setIsMapFocused(false);
             setFocused(null);
+            setHoveredId(null);
           }}
         />
-        <Dashboard department={selected} focused={focused} />
+        <Dashboard
+          key={selected.id}
+          department={selected}
+          focused={focused}
+          collapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed((value) => !value)}
+        />
       </div>
     </main>
   );
